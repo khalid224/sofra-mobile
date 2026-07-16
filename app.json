@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "sofra",
+    "slug": "sofra",
+    "scheme": "sofra",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFF9F1"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "eg.sofra.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "لرفع صور الطلبات والشكاوى.",
+        "NSPhotoLibraryUsageDescription": "لاختيار صور من الألبوم."
+      }
+    },
+    "android": {
+      "package": "eg.sofra.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#CA4B20"
+      },
+      "permissions": [
+        "CAMERA",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#CA4B20"
+        }
+      ],
+      "expo-splash-screen",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b4b959e8-ff21-43dc-9f0f-541a3f5809bb"
+      }
+    },
+    "owner": "food-app2"
+  }
+}
