@@ -25,6 +25,7 @@
     },
     "android": {
       "package": "eg.sofra.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#CA4B20"

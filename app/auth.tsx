@@ -14,7 +14,6 @@ import { validateEmail } from '@/utils';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
-import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -33,9 +32,8 @@ export default function AuthScreen() {
     setLoading(true);
     try {
 
-      const redirectUrl = Linking.createURL("", {
-        scheme: "sofra",
-      });
+      // Force custom scheme to avoid exp:// redirection issues in Dev Client
+      const redirectUrl = "sofra://auth-callback";
       console.log("Redirect URL:", redirectUrl);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -46,10 +44,13 @@ export default function AuthScreen() {
       });
       if (error) throw error;
 
+      console.log("OAuth URL:", data?.url);
+
       if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+        console.log("WebBrowser Result:", result);
         if (result.type === 'success' && result.url) {
-          // Parse hash fragments
+          // 1. Parse hash fragments (Implicit Grant Flow)
           const hashIndex = result.url.indexOf('#');
           if (hashIndex !== -1) {
             const hash = result.url.substring(hashIndex + 1);
@@ -67,7 +68,23 @@ export default function AuthScreen() {
               return;
             }
           }
-          // Fallback if hash parameter is not present directly
+
+          // 2. Parse query parameters (PKCE Flow / Authorization Code Flow)
+          const queryIndex = result.url.indexOf('?');
+          if (queryIndex !== -1) {
+            const query = result.url.substring(queryIndex + 1).split('#')[0];
+            const params = new URLSearchParams(query);
+            const code = params.get('code');
+            if (code) {
+              const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+              if (exchangeError) throw exchangeError;
+              Toast.show({ type: 'success', text1: 'مرحباً بك!', text2: 'تم تسجيل الدخول بنجاح' });
+              router.replace('/(tabs)');
+              return;
+            }
+          }
+
+          // 3. Fallback check for session
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
             Toast.show({ type: 'success', text1: 'مرحباً بك!', text2: 'تم تسجيل الدخول بنجاح' });

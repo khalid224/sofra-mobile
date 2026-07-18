@@ -25,6 +25,11 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useAppStore } from "@/store";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
+import * as WebBrowser from 'expo-web-browser';
+
+// Required at the root level so any lingering auth sessions are completed
+// on every app render — works for both warm and cold OAuth redirects
+WebBrowser.maybeCompleteAuthSession();
 
 // Force RTL once before first render
 if (!I18nManager.isRTL) {
@@ -85,6 +90,7 @@ function AppContent() {
         <Stack.Screen name="profile/addresses" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="admin" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="contact" options={{ animation: "slide_from_right" }} />
+        <Stack.Screen name="auth-callback" options={{ headerShown: false, animation: "fade" }} />
       </Stack>
       <Toast />
     </View>

@@ -8,10 +8,11 @@ import { useAuth } from '@/contexts/AuthContext';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
-    shouldSetBadge: true,
-  } as unknown as Notifications.NotificationBehavior),
+    shouldSetBadge: false,
+  }),
 });
 
 async function registerForPushNotifications(): Promise<string | null> {
@@ -37,7 +38,9 @@ async function registerForPushNotifications(): Promise<string | null> {
   const projectId =
     (Constants.expoConfig as any)?.extra?.eas?.projectId as string | undefined;
   const tokenData = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
-  return tokenData.data;
+  const token = tokenData.data;
+  console.log('[Notifications] Expo Push Token:', token);
+  return token;
 }
 
 async function saveToken(userId: string, token: string): Promise<void> {

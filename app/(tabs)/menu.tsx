@@ -52,7 +52,7 @@ export default function MenuScreen() {
       <ScreenHeader title="المنيو" showBack={false} showThemeToggle />
 
       {/* Category chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm }}>
         <Chip label="الكل" active={!categoryId} onPress={() => { setCategoryId(undefined); setSubcategoryId(undefined); }} />
         {(categories.data ?? []).map((c) => (
           <Chip key={c.id} label={c.name} active={categoryId === c.id} onPress={() => { setCategoryId(c.id); setSubcategoryId(undefined); }} />
@@ -61,7 +61,7 @@ export default function MenuScreen() {
 
       {/* Subcategory chips */}
       {(subs.data?.length ?? 0) > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm }}>
           <Chip label="الكل" size="sm" active={!subcategoryId} onPress={() => setSubcategoryId(undefined)} />
           {(subs.data ?? []).map((s) => (
             <Chip key={s.id} label={s.name} size="sm" active={subcategoryId === s.id} onPress={() => setSubcategoryId(s.id)} />
@@ -90,6 +90,7 @@ export default function MenuScreen() {
           data={Array.from({ length: 6 })}
           keyExtractor={(_, i) => String(i)}
           numColumns={2}
+          style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: spacing.sm }}
           renderItem={() => <View style={{ flex: 1 }}><SkeletonCard /></View>}
         />
@@ -100,6 +101,7 @@ export default function MenuScreen() {
           data={meals.data?.data}
           keyExtractor={(m) => m.id}
           numColumns={2}
+          style={{ flex: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           contentContainerStyle={{ paddingHorizontal: spacing.sm, paddingBottom: 80 }}
           renderItem={({ item }) => <FoodCard meal={item} />}
