@@ -8,6 +8,7 @@
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
 export async function registerForPushNotificationsAsync(): Promise<string> {
   if (!Device.isDevice) {
@@ -28,6 +29,11 @@ export async function registerForPushNotificationsAsync(): Promise<string> {
 
   const projectId = "b4b959e8-ff21-43dc-9f0f-541a3f5809bb";
 
+  console.log("Expo Config");
+  console.log(Constants.expoConfig);
+
+  console.log("ProjectId");
+  console.log(projectId);
   const token = await Notifications.getExpoPushTokenAsync({ projectId });
 
   if (Platform.OS === "android") {
