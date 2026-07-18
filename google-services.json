@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "320763978315",
+    "project_id": "sofra-2aa89",
+    "storage_bucket": "sofra-2aa89.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:320763978315:android:3b693fb0c0d9ac93d523ce",
+        "android_client_info": {
+          "package_name": "eg.sofra.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2BycmOkfw8XVUZXGDzZPazlpW69MNdIQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
