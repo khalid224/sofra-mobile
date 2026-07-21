@@ -11,6 +11,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { CartItem, UUID } from '@/types';
 import { STORAGE_KEYS, MAX_CART_QUANTITY } from '@/constants';
 
+// Helper to get unique identifier for cart items
+export function getCartItemKey(item: { meal_id: UUID; variant_id?: UUID }): string {
+  return item.variant_id ?? item.meal_id;
+}
+
 // ─── State ───────────────────────────────────────────────────
 interface CartState {
   items: CartItem[];
@@ -20,9 +25,9 @@ interface CartState {
 type CartAction =
   | { type: 'LOADED'; items: CartItem[] }
   | { type: 'ADD'; item: CartItem }
-  | { type: 'REMOVE'; meal_id: UUID }
-  | { type: 'SET_QUANTITY'; meal_id: UUID; quantity: number }
-  | { type: 'SET_NOTES'; meal_id: UUID; notes: string }
+  | { type: 'REMOVE'; key: UUID }
+  | { type: 'SET_QUANTITY'; key: UUID; quantity: number }
+  | { type: 'SET_NOTES'; key: UUID; notes: string }
   | { type: 'CLEAR' };
 
 function cartReducer(state: CartState, action: CartAction): CartState {
@@ -30,12 +35,13 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case 'LOADED':
       return { items: action.items, isReady: true };
     case 'ADD': {
-      const existing = state.items.find((i) => i.meal_id === action.item.meal_id);
+      const targetKey = getCartItemKey(action.item);
+      const existing = state.items.find((i) => getCartItemKey(i) === targetKey);
       if (existing) {
         return {
           ...state,
           items: state.items.map((i) =>
-            i.meal_id === action.item.meal_id
+            getCartItemKey(i) === targetKey
               ? { ...i, quantity: Math.min(i.quantity + action.item.quantity, MAX_CART_QUANTITY) }
               : i,
           ),
@@ -44,12 +50,12 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return { ...state, items: [...state.items, action.item] };
     }
     case 'REMOVE':
-      return { ...state, items: state.items.filter((i) => i.meal_id !== action.meal_id) };
+      return { ...state, items: state.items.filter((i) => getCartItemKey(i) !== action.key) };
     case 'SET_QUANTITY':
       return {
         ...state,
         items: state.items.map((i) =>
-          i.meal_id === action.meal_id
+          getCartItemKey(i) === action.key
             ? { ...i, quantity: Math.max(1, Math.min(action.quantity, MAX_CART_QUANTITY)) }
             : i,
         ),
@@ -58,7 +64,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return {
         ...state,
         items: state.items.map((i) =>
-          i.meal_id === action.meal_id ? { ...i, notes: action.notes } : i,
+          getCartItemKey(i) === action.key ? { ...i, notes: action.notes } : i,
         ),
       };
     case 'CLEAR':
@@ -75,12 +81,12 @@ interface CartContextValue {
   totalItems: number;
   subtotal: number;
   addItem: (item: CartItem) => void;
-  removeItem: (meal_id: UUID) => void;
-  setQuantity: (meal_id: UUID, quantity: number) => void;
-  setNotes: (meal_id: UUID, notes: string) => void;
+  removeItem: (key: UUID) => void;
+  setQuantity: (key: UUID, quantity: number) => void;
+  setNotes: (key: UUID, notes: string) => void;
   clear: () => void;
-  hasItem: (meal_id: UUID) => boolean;
-  getItem: (meal_id: UUID) => CartItem | undefined;
+  hasItem: (key: UUID) => boolean;
+  getItem: (key: UUID) => CartItem | undefined;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -105,18 +111,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [state.items, state.isReady]);
 
   const addItem = useCallback((item: CartItem) => dispatch({ type: 'ADD', item }), []);
-  const removeItem = useCallback((meal_id: UUID) => dispatch({ type: 'REMOVE', meal_id }), []);
+  const removeItem = useCallback((key: UUID) => dispatch({ type: 'REMOVE', key }), []);
   const setQuantity = useCallback(
-    (meal_id: UUID, quantity: number) => dispatch({ type: 'SET_QUANTITY', meal_id, quantity }),
+    (key: UUID, quantity: number) => dispatch({ type: 'SET_QUANTITY', key, quantity }),
     [],
   );
   const setNotes = useCallback(
-    (meal_id: UUID, notes: string) => dispatch({ type: 'SET_NOTES', meal_id, notes }),
+    (key: UUID, notes: string) => dispatch({ type: 'SET_NOTES', key, notes }),
     [],
   );
   const clear = useCallback(() => dispatch({ type: 'CLEAR' }), []);
-  const hasItem = useCallback((meal_id: UUID) => state.items.some((i) => i.meal_id === meal_id), [state.items]);
-  const getItem = useCallback((meal_id: UUID) => state.items.find((i) => i.meal_id === meal_id), [state.items]);
+  const hasItem = useCallback((key: UUID) => state.items.some((i) => getCartItemKey(i) === key), [state.items]);
+  const getItem = useCallback((key: UUID) => state.items.find((i) => getCartItemKey(i) === key), [state.items]);
 
   const totalItems = useMemo(() => state.items.reduce((sum, i) => sum + i.quantity, 0), [state.items]);
   const subtotal = useMemo(

@@ -56,5 +56,7 @@ export const QUERY_KEYS = {
   FAVORITES: 'favorites',
   AVAILABLE_TODAY: 'available-today',
   RESTAURANT_STATUS: 'restaurant-status',
+  VARIANTS: 'variants',
+  APPROVED_REVIEWS: 'approved-reviews',
 } as const;
 

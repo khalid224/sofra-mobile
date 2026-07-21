@@ -63,6 +63,10 @@ export function FoodCard({ meal, size = 'md', horizontal = false }: FoodCardProp
   const handleAdd = async (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (meal.variants && meal.variants.length > 0) {
+      router.push(`/food/${meal.id}`);
+      return;
+    }
     addItem({ meal_id: meal.id, name: meal.name, image_url: meal.image_url, price: meal.price, quantity: 1, notes: '' });
   };
 

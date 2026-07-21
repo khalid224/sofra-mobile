@@ -75,10 +75,21 @@ export async function fetchMeals(filters: MealFilters = {}): Promise<PaginatedRe
 
   let q = supabase.from('meals').select(MEAL_FIELDS, { count: 'exact' }).eq('is_available', true);
 
-  if (categoryId) {
-    q = q.eq('subcategory.category.id', categoryId);
+  if (subcategoryId) {
+    q = q.eq('subcategory_id', subcategoryId);
+  } else if (categoryId) {
+    const { data: subs } = await supabase
+      .from('subcategories')
+      .select('id')
+      .eq('category_id', categoryId)
+      .eq('is_active', true);
+    const subIds = (subs ?? []).map((s) => s.id);
+    if (subIds.length === 0) {
+      return { data: [], count: 0, page, pageSize, hasMore: false };
+    }
+    q = q.in('subcategory_id', subIds);
   }
-  if (subcategoryId) q = q.eq('subcategory_id', subcategoryId);
+
   if (search) q = q.ilike('name', `%${search}%`);
   if (featured) q = q.eq('is_featured', true);
   if (popular) q = q.eq('is_popular', true);
@@ -91,7 +102,7 @@ export async function fetchMeals(filters: MealFilters = {}): Promise<PaginatedRe
     case 'price_asc': q = q.order('price', { ascending: true }); break;
     case 'price_desc': q = q.order('price', { ascending: false }); break;
     case 'most_favorited': q = q.order('favorites_count', { ascending: false }); break;
-    default: q = q.order('created_at', { ascending: false });
+    default: q = q.order('sort_order', { ascending: true }).order('created_at', { ascending: false });
   }
 
   q = q.range(from, to);
@@ -134,15 +145,39 @@ export async function fetchSimilarMeals(subcategoryId: string, excludeId: string
 }
 
 export async function searchMeals(keyword: string): Promise<Meal[]> {
-  const { data, error } = await supabase
+  // 1. Direct meal matches by name or description
+  const { data: directMeals, error: err1 } = await supabase
     .from('meals')
     .select(MEAL_FIELDS)
     .eq('is_available', true)
     .or(`name.ilike.%${keyword}%,description.ilike.%${keyword}%`)
     .limit(20);
-  handleSupabaseError(error);
-  return (data ?? []) as unknown as Meal[];
+  handleSupabaseError(err1);
 
+  // 2. Variant matches
+  const { data: variantRows } = await supabase
+    .from('meal_variants')
+    .select('meal_id')
+    .ilike('name', `%${keyword}%`)
+    .eq('is_available', true)
+    .limit(20);
+
+  const variantMealIds = (variantRows ?? []).map((v) => v.meal_id);
+  const existingIds = new Set((directMeals ?? []).map((m) => m.id));
+  const missingMealIds = variantMealIds.filter((id) => !existingIds.has(id));
+
+  let variantMeals: Meal[] = [];
+  if (missingMealIds.length > 0) {
+    const { data: vMeals, error: err2 } = await supabase
+      .from('meals')
+      .select(MEAL_FIELDS)
+      .eq('is_available', true)
+      .in('id', missingMealIds);
+    handleSupabaseError(err2);
+    variantMeals = (vMeals ?? []) as unknown as Meal[];
+  }
+
+  return [...((directMeals ?? []) as unknown as Meal[]), ...variantMeals];
 }
 
 // ─── Available Today ─────────────────────────────────────────

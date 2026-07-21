@@ -17,6 +17,7 @@ import { ErrorState } from '@/components/ui/States';
 import { StarRating } from '@/components/shared/StarRating';
 import { FoodCard } from '@/components/shared/FoodCard';
 import { fetchMealById, fetchSimilarMeals, fetchAvailableTodayById } from '@/features/menu/api/meals.api';
+import { fetchVariants } from '@/features/menu/api/variants.api';
 import { fetchMealReviews as fetchReviews } from '@/features/reviews/api/reviews.api';
 import { addFavorite, isFavorite, removeFavorite } from '@/features/favorites/api/favorites.api';
 import { useCart } from '@/contexts/CartContext';
@@ -24,7 +25,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatEGP } from '@/utils';
 import { QUERY_KEYS, MAX_CART_QUANTITY } from '@/constants';
-import type { Meal, AvailableToday } from '@/types';
+import type { Meal, AvailableToday, MealVariant, MealVariantExtra } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 export default function FoodDetailScreen() {
@@ -37,6 +38,8 @@ export default function FoodDetailScreen() {
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
   const [activeImage, setActiveImage] = useState(0);
+  const [selectedVariant, setSelectedVariant] = useState<MealVariant | null>(null);
+  const [selectedExtras, setSelectedExtras] = useState<MealVariantExtra[]>([]);
 
   // Queries
   const meal = useQuery({ 
@@ -97,6 +100,21 @@ export default function FoodDetailScreen() {
     enabled: !!id,
   });
 
+  const variants = useQuery({
+    queryKey: [QUERY_KEYS.VARIANTS, id],
+    queryFn: () => fetchVariants(id!),
+    enabled: !!id && !todaySpecialId,
+    staleTime: 60_000,
+    select: (data) => {
+      // Auto-select default variant on first load
+      if (data.length > 0 && selectedVariant === null) {
+        const def = data.find((v) => v.is_default) ?? data[0];
+        setSelectedVariant(def);
+      }
+      return data;
+    },
+  });
+
   const restaurantStatus = useQuery({
     queryKey: [QUERY_KEYS.RESTAURANT_STATUS],
     queryFn: async () => {
@@ -118,26 +136,43 @@ export default function FoodDetailScreen() {
 
   // Derived Properties
   const isSpecial = !!todaySpecialId && !!todaySpecial.data;
-  
+  const hasVariants = (variants.data?.length ?? 0) > 0;
+
   const displayName = isSpecial ? todaySpecial.data.title : (meal.data?.name ?? '');
   const displayDescription = isSpecial ? todaySpecial.data.description : (meal.data?.description ?? null);
-  const displayPrice = isSpecial ? todaySpecial.data.price : (meal.data?.price ?? 0);
-  
-  // Use snapshot image if available
-  const snapshotImage = isSpecial ? todaySpecial.data.image_url : null;
+  const basePrice = isSpecial ? todaySpecial.data.price : (selectedVariant?.price ?? meal.data?.price ?? 0);
+  const extrasTotal = selectedExtras.reduce((sum, e) => sum + e.price, 0);
+  const displayPrice = basePrice + extrasTotal;
+  const displayPrepTime = selectedVariant?.estimated_preparation_time ?? meal.data?.estimated_preparation_time;
+
+  // Use variant image if available, else snapshot/meal
+  const snapshotImage = isSpecial ? todaySpecial.data.image_url : (selectedVariant?.image_url ?? null);
   const images = meal.data 
     ? [snapshotImage || meal.data.image_url, ...(meal.data.gallery ?? [])].filter(Boolean) as string[] 
     : (snapshotImage ? [snapshotImage] : []);
 
-  // Limit quantity to special's remaining stock or global max
-  const maxStock = isSpecial ? todaySpecial.data.quantity : MAX_CART_QUANTITY;
-  const isSoldOut = isSpecial && todaySpecial.data.status === 'sold_out';
+  const maxStock = isSpecial ? todaySpecial.data.quantity
+    : (selectedVariant?.stock_count !== null && selectedVariant?.stock_count !== undefined ? selectedVariant.stock_count : MAX_CART_QUANTITY);
+  const isSoldOut = isSpecial
+    ? todaySpecial.data.status === 'sold_out'
+    : hasVariants && selectedVariant ? selectedVariant.stock_count === 0 : false;
   const isExpired = isSpecial && todaySpecial.data.status === 'expired';
   const isAvailable = isSpecial 
     ? (todaySpecial.data.is_active && !isSoldOut && !isExpired) 
-    : (meal.data?.is_available ?? false);
+    : hasVariants
+      ? (selectedVariant?.is_available ?? false) && !isSoldOut
+      : (meal.data?.is_available ?? false);
 
-  const inCart = meal.data ? getItem(meal.data.id) : undefined;
+  const cartKey = selectedVariant?.id ?? (meal.data?.id ?? '');
+  const inCart = cartKey ? getItem(cartKey) : undefined;
+
+  const toggleExtra = (extra: MealVariantExtra) => {
+    setSelectedExtras((prev) =>
+      prev.some((e) => e.id === extra.id)
+        ? prev.filter((e) => e.id !== extra.id)
+        : [...prev, extra]
+    );
+  };
 
   const handleAddToCart = async () => {
     if (!meal.data) return;
@@ -145,25 +180,36 @@ export default function FoodDetailScreen() {
       Toast.show({ type: 'error', text1: 'عذراً، المطعم مغلق حالياً', text2: 'لا يمكن استقبال طلبات جديدة' });
       return;
     }
-    if (isSpecial && quantity > maxStock) {
+    if (hasVariants && !selectedVariant) {
+      Toast.show({ type: 'error', text1: 'اختر خياراً أولاً', text2: 'يرجى تحديد نوع الصنف قبل الإضافة' });
+      return;
+    }
+    if (maxStock !== null && quantity > maxStock) {
       Toast.show({ type: 'error', text1: 'الكمية غير كافية', text2: `المتبقي في المخزون ${maxStock} فقط` });
       return;
     }
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    const cartItemName = selectedVariant
+      ? `${displayName} - ${selectedVariant.name}`
+      : displayName;
     
     addItem({ 
       meal_id: meal.data.id, 
-      name: displayName, 
+      name: cartItemName, 
       image_url: images[0] ?? null, 
       price: displayPrice, 
       quantity, 
       notes,
       is_today_special: isSpecial,
-      today_special_id: todaySpecialId
+      today_special_id: todaySpecialId,
+      variant_id: selectedVariant?.id,
+      variant_name: selectedVariant?.name,
+      extras: selectedExtras.map((e) => ({ id: e.id, name: e.name, price: e.price })),
     });
     
-    Toast.show({ type: 'success', text1: 'تمت الإضافة للسلة ✓', text2: `${displayName} × ${quantity}` });
+    Toast.show({ type: 'success', text1: 'تمت الإضافة للسلة ✓', text2: `${cartItemName} × ${quantity}` });
   };
 
   if (meal.isError || (todaySpecialId && todaySpecial.isError)) {
@@ -279,6 +325,148 @@ export default function FoodDetailScreen() {
                 </View>
               )}
 
+              {/* ── Variant Selector ── */}
+              {!isSpecial && hasVariants && (
+                <View style={{ gap: spacing.sm }}>
+                  <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.foreground, textAlign: 'right' }}>
+                    اختر الخيار
+                  </Text>
+                  {(variants.data ?? []).map((v) => {
+                    const isSelected = selectedVariant?.id === v.id;
+                    const isVariantSoldOut = v.stock_count === 0;
+                    const isVariantUnavailable = !v.is_available || isVariantSoldOut;
+                    return (
+                      <Pressable
+                        key={v.id}
+                        onPress={() => {
+                          if (!isVariantUnavailable) {
+                            setSelectedVariant(v);
+                            setSelectedExtras([]); // reset extras when switching variant
+                          }
+                        }}
+                        style={{
+                          flexDirection: 'row-reverse',
+                          alignItems: 'center',
+                          padding: spacing.md,
+                          borderRadius: radius.xl,
+                          borderWidth: 2,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                          backgroundColor: isSelected ? colors.primarySubtle : colors.card,
+                          opacity: isVariantUnavailable ? 0.5 : 1,
+                          gap: spacing.sm,
+                        }}
+                      >
+                        {/* Radio indicator */}
+                        <View style={{
+                          width: 22, height: 22, borderRadius: 11,
+                          borderWidth: 2,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                          alignItems: 'center', justifyContent: 'center',
+                          marginLeft: 'auto',
+                        }}>
+                          {isSelected && (
+                            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary }} />
+                          )}
+                        </View>
+
+                        {/* Variant info */}
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                              <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.md, color: colors.foreground }}>
+                                {v.name}
+                              </Text>
+                              {v.is_default && (
+                                <View style={{ backgroundColor: colors.primarySubtle, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 }}>
+                                  <Text style={{ fontFamily: fontFamily.semibold, fontSize: 9, color: colors.primary }}>افتراضي</Text>
+                                </View>
+                              )}
+                              {isVariantSoldOut && (
+                                <View style={{ backgroundColor: '#fee2e2', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 }}>
+                                  <Text style={{ fontFamily: fontFamily.semibold, fontSize: 9, color: '#ef4444' }}>نفذت الكمية</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize.lg, color: colors.primary }}>
+                              {formatEGP(v.price)}
+                            </Text>
+                          </View>
+                          {v.description && (
+                            <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: 'right' }}>
+                              {v.description}
+                            </Text>
+                          )}
+                          {v.estimated_preparation_time && (
+                            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3 }}>
+                              <Clock size={11} color={colors.mutedForeground} />
+                              <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground }}>
+                                {v.estimated_preparation_time} دقيقة
+                              </Text>
+                            </View>
+                          )}
+                          {v.stock_count !== null && v.stock_count > 0 && v.stock_count <= 5 && (
+                            <Text style={{ fontFamily: fontFamily.semibold, fontSize: fontSize.xs, color: '#f59e0b', textAlign: 'right' }}>
+                              ⚠️ متبقي {v.stock_count} فقط
+                            </Text>
+                          )}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* ── Extras Selector ── */}
+              {!isSpecial && selectedVariant && (selectedVariant.extras?.length ?? 0) > 0 && (
+                <View style={{ gap: spacing.sm }}>
+                  <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.foreground, textAlign: 'right' }}>
+                    إضافات اختيارية
+                  </Text>
+                  {(selectedVariant.extras ?? []).map((extra) => {
+                    const isExtraSelected = selectedExtras.some((e) => e.id === extra.id);
+                    return (
+                      <Pressable
+                        key={extra.id}
+                        onPress={() => toggleExtra(extra)}
+                        style={{
+                          flexDirection: 'row-reverse',
+                          alignItems: 'center',
+                          padding: spacing.md,
+                          borderRadius: radius.xl,
+                          borderWidth: 1.5,
+                          borderColor: isExtraSelected ? colors.primary : colors.border,
+                          backgroundColor: isExtraSelected ? colors.primarySubtle : colors.card,
+                          gap: spacing.sm,
+                        }}
+                      >
+                        <View style={{
+                          width: 20, height: 20, borderRadius: 4,
+                          borderWidth: 2,
+                          borderColor: isExtraSelected ? colors.primary : colors.border,
+                          backgroundColor: isExtraSelected ? colors.primary : 'transparent',
+                          alignItems: 'center', justifyContent: 'center',
+                          marginLeft: 'auto',
+                        }}>
+                          {isExtraSelected && (
+                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>✓</Text>
+                          )}
+                        </View>
+                        <View style={{ flex: 1, flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={{ fontFamily: fontFamily.semibold, fontSize: fontSize.md, color: colors.foreground }}>
+                            {extra.name}
+                          </Text>
+                          {extra.price > 0 && (
+                            <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.sm, color: colors.primary }}>
+                              + {formatEGP(extra.price)}
+                            </Text>
+                          )}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
               {/* Quantity Select */}
               {isAvailable && isOpen && (
                 <View style={{ gap: spacing.sm, marginTop: spacing.xs }}>
@@ -289,7 +477,7 @@ export default function FoodDetailScreen() {
                         <Minus size={16} color={colors.foreground} />
                       </Pressable>
                       <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.foreground, minWidth: 28, textAlign: 'center' }}>{quantity}</Text>
-                      <Pressable onPress={() => setQuantity((q) => Math.min(q + 1, maxStock))} style={{ paddingHorizontal: 14, paddingVertical: 8 }}>
+                      <Pressable onPress={() => setQuantity((q) => Math.min(q + 1, maxStock ?? MAX_CART_QUANTITY))} style={{ paddingHorizontal: 14, paddingVertical: 8 }}>
                         <Plus size={16} color={colors.foreground} />
                       </Pressable>
                     </View>

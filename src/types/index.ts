@@ -48,7 +48,7 @@ export type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'failed';
 export type ComplaintStatus = 'open' | 'investigating' | 'resolved' | 'closed';
 
 // ─── Review ──────────────────────────────────────────────────
-export type ReviewStatus = 'pending' | 'approved' | 'hidden';
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'hidden';
 
 // ─── Chat ────────────────────────────────────────────────────
 export type SenderType = 'customer' | 'admin';
@@ -143,9 +143,42 @@ export interface Meal {
   is_featured: boolean;
   is_popular: boolean;
   calories: number | null;
+  sort_order?: number;
   created_at: ISODateString;
   updated_at: ISODateString;
   subcategory?: Subcategory;
+  variants?: MealVariant[];
+}
+
+// ─── Meal Variant & Extras ────────────────────────────────────
+export interface MealVariantExtra {
+  id: UUID;
+  variant_id: UUID;
+  name: string;
+  price: number;
+  is_available: boolean;
+  display_order: number;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+}
+
+export interface MealVariant {
+  id: UUID;
+  meal_id: UUID;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  price: number;
+  estimated_preparation_time: number | null;
+  is_available: boolean;
+  is_default: boolean;
+  display_order: number;
+  track_stock?: boolean;
+  stock_count: number | null; // null = unlimited, 0 = sold out
+  is_deleted?: boolean;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+  extras?: MealVariantExtra[];
 }
 
 // ─── Cook ────────────────────────────────────────────────────
@@ -206,6 +239,9 @@ export interface OrderItem {
   updated_at: ISODateString;
   meal?: Meal;
   today_special_id?: UUID;
+  variant_id?: UUID;
+  variant_name?: string;
+  selected_extras?: { id: UUID; name: string; price: number }[] | null;
   meal_name?: string;
   meal_image?: string;
 }
@@ -231,6 +267,10 @@ export interface CartItem {
   // Today Special tracking — allows atomic stock decrement on checkout
   is_today_special?: boolean;
   today_special_id?: UUID;
+  // Variant & Extras tracking
+  variant_id?: UUID;
+  variant_name?: string;
+  extras?: { id: UUID; name: string; price: number }[];
 }
 
 // ─── Available Today (Snapshot) ──────────────────────────────
@@ -265,6 +305,8 @@ export interface Review {
   rating: number;
   comment: string | null;
   status: ReviewStatus;
+  is_pinned?: boolean;
+  pin_order?: number;
   created_at: ISODateString;
   updated_at: ISODateString;
   customer?: Profile;

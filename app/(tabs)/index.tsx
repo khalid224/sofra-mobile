@@ -36,10 +36,12 @@ import {
   fetchMeals,
   fetchAvailableToday,
 } from '@/features/menu/api/meals.api';
+import { fetchApprovedReviews } from '@/features/reviews/api/reviews.api';
+import { FloatingButtons } from '@/components/shared/FloatingButtons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { QUERY_KEYS } from '@/constants';
-import type { AvailableToday, Category } from '@/types';
+import type { AvailableToday, Category, Review } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -105,6 +107,11 @@ export default function HomeScreen() {
     queryFn: fetchAvailableToday,
     staleTime: 60_000,
   });
+  const approvedReviews = useQuery({
+    queryKey: [QUERY_KEYS.APPROVED_REVIEWS],
+    queryFn: () => fetchApprovedReviews(8),
+    staleTime: 60_000,
+  });
   const restaurantStatus = useQuery({
     queryKey: [QUERY_KEYS.RESTAURANT_STATUS],
     queryFn: async () => {
@@ -116,6 +123,7 @@ export default function HomeScreen() {
           'restaurant_open_time',
           'restaurant_close_time',
           'restaurant_closed_msg',
+          'whatsapp_number',
         ]);
       const map: Record<string, string> = {};
       (data ?? []).forEach((r) => {
@@ -160,10 +168,11 @@ export default function HomeScreen() {
       popular.refetch(),
       newest.refetch(),
       todaySpecials.refetch(),
+      approvedReviews.refetch(),
       restaurantStatus.refetch(),
     ]);
     setRefreshing(false);
-  }, [categories, featured, popular, newest, todaySpecials, restaurantStatus]);
+  }, [categories, featured, popular, newest, todaySpecials, approvedReviews, restaurantStatus]);
 
   if (categories.isError || featured.isError) {
     return <ErrorState onRetry={onRefresh} />;
@@ -459,17 +468,22 @@ export default function HomeScreen() {
           />
         )}
 
-        {/* ── Available Today ── */}
+        {/* ── Available Today / Made To Order ── */}
         {(todaySpecials.isLoading ||
           (todaySpecials.data?.length ?? 0) > 0) && (
           <>
             <SectionHeader
-              title='متاح اليوم ⚡'
-              icon={<Zap size={16} color='#f59e0b' />}
+              title='👨‍🍳 يُحضَّر عند الطلب'
+              icon={<ChefHat size={18} color={colors.primary} />}
               onSeeAll={undefined}
               colors={colors}
-              accent='#f59e0b'
             />
+            <View style={{ paddingHorizontal: spacing.md, marginTop: -4, marginBottom: spacing.sm, flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary }} />
+              <Text style={{ fontFamily: fontFamily.medium, fontSize: fontSize.xs, color: colors.mutedForeground }}>
+                يبدأ التحضير بعد تأكيد الطلب · حوالي ساعة
+              </Text>
+            </View>
             {todaySpecials.isLoading ? (
               <ScrollView
                 horizontal
@@ -628,11 +642,76 @@ export default function HomeScreen() {
           </>
         )}
 
+        {/* ── Customer Reviews Section ── */}
+        {(approvedReviews.data?.length ?? 0) > 0 && (
+          <>
+            <SectionHeader
+              title='آراء العملاء ⭐'
+              icon={<Star size={16} color='#f59e0b' />}
+              onSeeAll={() => router.push('/reviews')}
+              colors={colors}
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: spacing.md,
+                gap: spacing.sm,
+                paddingBottom: spacing.sm,
+              }}
+            >
+              {approvedReviews.data?.map((rev) => (
+                <View
+                  key={rev.id}
+                  style={{
+                    width: 240,
+                    backgroundColor: colors.card,
+                    borderRadius: radius.xl,
+                    padding: spacing.md,
+                    borderWidth: 1,
+                    borderColor: rev.is_pinned ? '#f59e0b' : colors.border,
+                    gap: 6,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 2 }}>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star key={i} size={12} color='#f59e0b' fill={i < rev.rating ? '#f59e0b' : 'transparent'} />
+                      ))}
+                    </View>
+                    {rev.is_pinned && (
+                      <View style={{ backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 9, fontFamily: fontFamily.bold, color: '#b45309' }}>مميز ⭐</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.xs, color: colors.foreground, textAlign: 'right' }}>
+                    {rev.customer?.full_name ?? 'عميل سفرة'}
+                  </Text>
+                  {rev.meal && (
+                    <Text style={{ fontFamily: fontFamily.medium, fontSize: 10, color: colors.primary, textAlign: 'right' }}>
+                      على صنف: {rev.meal.name}
+                    </Text>
+                  )}
+                  {rev.comment && (
+                    <Text numberOfLines={3} style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: 'right', lineHeight: 18 }}>
+                      "{rev.comment}"
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
         {/* ── Footer ── */}
         <FooterSection colors={colors} />
 
         <View style={{ height: spacing['2xl'] }} />
       </ScrollView>
+
+      {/* ── Floating WhatsApp & Chat Action Buttons ── */}
+      <FloatingButtons whatsappNumber={restaurantStatus.data?.whatsapp_number} />
     </View>
   );
 }

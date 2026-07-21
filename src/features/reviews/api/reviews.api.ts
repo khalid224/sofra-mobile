@@ -2,7 +2,11 @@ import { supabase } from '@/lib/supabase';
 import { handleSupabaseError } from '@/lib/errors';
 import type { Review, UUID } from '@/types';
 
-const REVIEW_FIELDS = `id, order_id, customer_id, meal_id, rating, comment, status, created_at, updated_at`;
+const REVIEW_FIELDS = `
+  id, order_id, customer_id, meal_id, rating, comment, status, is_pinned, created_at, updated_at,
+  customer:profiles(id, full_name, avatar_url),
+  meal:meals(id, name, image_url)
+`;
 
 export interface CreateReviewInput {
   order_id: UUID;
@@ -28,11 +32,26 @@ export async function fetchMealReviews(mealId: UUID): Promise<Review[]> {
     .from('reviews')
     .select(REVIEW_FIELDS)
     .eq('meal_id', mealId)
-    .eq('status', 'approved')
+    .in('status', ['approved', 'pinned'])
+    .order('is_pinned', { ascending: false })
+    .order('pin_order', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(20);
   handleSupabaseError(error);
-  return (data ?? []) as Review[];
+  return (data ?? []) as unknown as Review[];
+}
+
+export async function fetchApprovedReviews(limit = 10): Promise<Review[]> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select(REVIEW_FIELDS)
+    .in('status', ['approved', 'pinned'])
+    .order('is_pinned', { ascending: false })
+    .order('pin_order', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  handleSupabaseError(error);
+  return (data ?? []) as unknown as Review[];
 }
 
 export async function fetchMyReviews(customerId: UUID): Promise<Review[]> {
@@ -42,7 +61,7 @@ export async function fetchMyReviews(customerId: UUID): Promise<Review[]> {
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false });
   handleSupabaseError(error);
-  return (data ?? []) as Review[];
+  return (data ?? []) as unknown as Review[];
 }
 
 export async function checkHasReviewed(orderId: UUID): Promise<boolean> {

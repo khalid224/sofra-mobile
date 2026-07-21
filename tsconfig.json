@@ -14,5 +14,11 @@
   "include": [
     "**/*.ts",
     "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase",
+    "src/__tests__",
+    "jest.setup.ts"
   ]
 }
