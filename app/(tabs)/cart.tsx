@@ -51,8 +51,9 @@ export default function CartScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <FlatList
           data={items}
-          keyExtractor={(i) => i.meal_id}
-          contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: 200 }}
+          keyExtractor={(item, index) => item.variant_id ? `${item.meal_id}-${item.variant_id}` : item.meal_id || `cart-${index}`}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: 200 }}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
           renderItem={({ item }) => <CartItemCard item={item} colors={colors} setQuantity={setQuantity} setNotes={setNotes} removeItem={removeItem} />}
         />
       </KeyboardAvoidingView>

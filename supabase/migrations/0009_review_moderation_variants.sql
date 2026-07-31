@@ -171,6 +171,24 @@ grant select, insert, update, delete on public.meal_variant_extras to authentica
 grant insert on public.analytics_events to anon, authenticated;
 grant select on public.analytics_events to authenticated;
 
+-- Storage buckets & policies
+insert into storage.buckets (id, name, public)
+values ('category-images', 'category-images', true),
+       ('meal-images', 'meal-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Public Access Images" on storage.objects;
+create policy "Public Access Images" on storage.objects
+  for select using (bucket_id in ('category-images', 'meal-images'));
+
+drop policy if exists "Admin Upload Images" on storage.objects;
+create policy "Admin Upload Images" on storage.objects
+  for insert with check (bucket_id in ('category-images', 'meal-images') and public.is_admin());
+
+drop policy if exists "Admin Update Images" on storage.objects;
+create policy "Admin Update Images" on storage.objects
+  for update using (bucket_id in ('category-images', 'meal-images') and public.is_admin());
+
 -- ────────────────────────────────────────────────────────────
 -- 6. APP SETTINGS DEFAULTS
 -- ────────────────────────────────────────────────────────────

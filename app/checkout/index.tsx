@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View, Pressable } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -41,6 +41,7 @@ export default function CheckoutScreen() {
   const { profile } = useAuth();
   const { items, subtotal, totalItems, clear } = useCart();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const isSubmittingRef = useRef(false);
   const [form, setForm] = useState<CheckoutForm>({
     full_name: profile?.full_name ?? '',
     phone: profile?.phone ?? '',
@@ -57,21 +58,19 @@ export default function CheckoutScreen() {
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [errors, setErrors] = useState<Partial<CheckoutForm> & { delivery_schedule?: string }>({});
 
-  const DELIVERY_FEE = 25;
-
   // ── Determine order mix type ────────────────────────────────
   const hasOnlyTodaySpecials = useMemo(() => {
     return items.length > 0 && items.every((i) => i.is_today_special);
   }, [items]);
 
-  // ── Fetch operational hours configured in settings ───────────
+  // ── Fetch operational hours & delivery fee configured in settings ───────────
   const restaurantStatus = useQuery({
     queryKey: [QUERY_KEYS.RESTAURANT_STATUS],
     queryFn: async () => {
       const { data } = await supabase
         .from('app_settings')
         .select('key, value')
-        .in('key', ['restaurant_open_time', 'restaurant_close_time']);
+        .in('key', ['restaurant_open_time', 'restaurant_close_time', 'delivery_fee']);
       const map: Record<string, string> = {};
       (data ?? []).forEach((r) => {
         map[r.key] = String(r.value).replace(/^"|"$/g, '');
@@ -83,6 +82,7 @@ export default function CheckoutScreen() {
 
   const openTime = restaurantStatus.data?.restaurant_open_time ?? '09:00';
   const closeTime = restaurantStatus.data?.restaurant_close_time ?? '22:00';
+  const DELIVERY_FEE = Number(restaurantStatus.data?.delivery_fee ?? 25);
 
   // ── Generate schedule options dynamically ──────────────────
   const dateOptions = useMemo(() => {
@@ -169,7 +169,15 @@ export default function CheckoutScreen() {
   });
 
   const handleSubmit = () => {
-    if (validate()) mutation.mutate();
+    if (isSubmittingRef.current || mutation.isPending) return;
+    if (validate()) {
+      isSubmittingRef.current = true;
+      mutation.mutate(undefined, {
+        onError: () => {
+          isSubmittingRef.current = false;
+        },
+      });
+    }
   };
 
   const update = (field: keyof CheckoutForm) => (val: string) => {

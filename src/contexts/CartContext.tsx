@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { CartItem, UUID } from '@/types';
 import { STORAGE_KEYS, MAX_CART_QUANTITY } from '@/constants';
+import { supabase } from '@/lib/supabase';
 
 // Helper to get unique identifier for cart items
 export function getCartItemKey(item: { meal_id: UUID; variant_id?: UUID }): string {
@@ -102,6 +103,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'LOADED', items });
       })
       .catch(() => dispatch({ type: 'LOADED', items: [] }));
+  }, []);
+
+  // Clear cart in-memory state when user signs out
+  useEffect(() => {
+    const { data: authSub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        dispatch({ type: 'CLEAR' });
+      }
+    });
+    return () => authSub.subscription.unsubscribe();
   }, []);
 
   // Persist on every change

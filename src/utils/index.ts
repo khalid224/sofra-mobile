@@ -22,9 +22,18 @@ export function formatShortDate(dateStr: string): string {
   return format(new Date(dateStr), 'dd/MM/yyyy', { locale: ar });
 }
 
+export function normalizeWhatsAppNumber(phone?: string | null): string {
+  if (!phone) return '201002422589';
+  let digits = phone.replace(/[^0-9]/g, '');
+  if (digits.startsWith('01') && digits.length === 11) {
+    digits = '2' + digits; // Convert local Egyptian 01xxxxxxxx to international 201xxxxxxxx
+  }
+  return digits || '201002422589';
+}
+
 export function buildWhatsAppUrl(phone: string, message: string): string {
-  const cleaned = phone.replace(/[^\d+]/g, '');
-  return `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`;
+  const normalized = normalizeWhatsAppNumber(phone);
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
 export function generateOrderNumber(): string {

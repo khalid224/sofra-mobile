@@ -1,19 +1,14 @@
-import { Animated, Linking, Pressable, View } from 'react-native';
+import { Animated, Pressable } from 'react-native';
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'expo-router';
-import { MessageSquare, PhoneCall } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
-import { useTheme } from '@/theme/ThemeContext';
-import { radius, shadow } from '@/theme/tokens';
-import { logAnalyticsEvent } from '@/lib/analytics';
+import { PhoneCall } from 'lucide-react-native';
+import { shadow } from '@/theme/tokens';
+import { openWhatsApp } from '@/lib/whatsapp';
 
 interface FloatingButtonsProps {
   whatsappNumber?: string | null;
 }
 
 export function FloatingButtons({ whatsappNumber }: FloatingButtonsProps) {
-  const { colors } = useTheme();
-  const router = useRouter();
   const slideAnim = useRef(new Animated.Value(80)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -33,32 +28,11 @@ export function FloatingButtons({ whatsappNumber }: FloatingButtonsProps) {
     ]).start();
   }, []);
 
-  const handleWhatsApp = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    logAnalyticsEvent('whatsapp_click', { whatsapp_number: whatsappNumber });
-    const cleanNumber = (whatsappNumber ?? '').replace(/[^0-9]/g, '');
-    if (!cleanNumber) return;
-
-    const nativeUrl = `whatsapp://send?phone=${cleanNumber}`;
-    const webUrl = `https://wa.me/${cleanNumber}`;
-
-    try {
-      const supported = await Linking.canOpenURL(nativeUrl);
-      if (supported) {
-        await Linking.openURL(nativeUrl);
-      } else {
-        await Linking.openURL(webUrl);
-      }
-    } catch {
-      await Linking.openURL(webUrl);
-    }
+  const handleWhatsApp = () => {
+    openWhatsApp(whatsappNumber, 'السلام عليكم، أحتاج مساعدة في تطبيق سفرة 🙏');
   };
 
-  const handleChat = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    logAnalyticsEvent('chat_click');
-    router.push('/chat' as never);
-  };
+  if (!whatsappNumber) return null;
 
   return (
     <Animated.View
@@ -67,43 +41,24 @@ export function FloatingButtons({ whatsappNumber }: FloatingButtonsProps) {
         bottom: 90,
         right: 16,
         zIndex: 999,
-        gap: 12,
         transform: [{ translateY: slideAnim }],
         opacity: opacityAnim,
       }}
     >
-      {/* WhatsApp Button */}
-      {!!whatsappNumber && (
-        <Pressable
-          onPress={handleWhatsApp}
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
-            backgroundColor: '#25D366',
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...shadow.md,
-          }}
-        >
-          <PhoneCall size={22} color="#fff" />
-        </Pressable>
-      )}
-
-      {/* Internal Chat Button */}
+      {/* WhatsApp Action Button */}
       <Pressable
-        onPress={handleChat}
+        onPress={handleWhatsApp}
         style={{
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          backgroundColor: colors.primary,
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          backgroundColor: '#25D366',
           alignItems: 'center',
           justifyContent: 'center',
-          ...shadow.md,
+          ...shadow.lg,
         }}
       >
-        <MessageSquare size={22} color="#fff" />
+        <PhoneCall size={24} color="#fff" />
       </Pressable>
     </Animated.View>
   );

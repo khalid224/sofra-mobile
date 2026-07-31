@@ -134,6 +134,21 @@ export default function HomeScreen() {
     staleTime: 60_000,
   });
 
+  const brandSettings = useQuery({
+    queryKey: ['brand_settings'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('brand_settings')
+        .select('key, value');
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r) => {
+        map[r.key] = String(r.value).replace(/^"|"$/g, '');
+      });
+      return map;
+    },
+    staleTime: 60_000,
+  });
+
   const isOpen = restaurantStatus.data?.restaurant_is_open !== 'false';
   const openTime = restaurantStatus.data?.restaurant_open_time ?? '09:00';
   const closeTime = restaurantStatus.data?.restaurant_close_time ?? '22:00';
@@ -259,135 +274,198 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* ── Hero Carousel ── */}
-        <View>
-          <ScrollView
-            ref={heroScrollRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={onHeroScroll}
-            scrollEventThrottle={16}
-          >
-            {HERO_BANNERS.map((banner) => (
-              <View
-                key={banner.id}
+        {/* ── Hero Banner (Admin Managed or Default Carousel) ── */}
+        {brandSettings.data?.hero_image_url ? (
+          <View style={{ width: SCREEN_W, height: 210, position: 'relative', overflow: 'hidden' }}>
+            <Image
+              source={{ uri: brandSettings.data.hero_image_url }}
+              style={{ width: '100%', height: '100%' }}
+              contentFit="cover"
+            />
+            <View
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundColor: 'rgba(0,0,0,0.35)',
+                justifyContent: 'center',
+                paddingHorizontal: spacing.xl,
+              }}
+            >
+              <Text
                 style={{
-                  width: SCREEN_W,
-                  height: 200,
-                  backgroundColor: banner.gradient[0],
-                  justifyContent: 'center',
-                  paddingHorizontal: spacing.xl,
-                  paddingVertical: spacing.lg,
+                  fontFamily: fontFamily.extrabold,
+                  fontSize: 26,
+                  color: '#fff',
+                  textAlign: 'right',
+                  lineHeight: 34,
                 }}
               >
-                {/* Background circle decoration */}
-                <View
-                  style={{
-                    position: 'absolute',
-                    right: -30,
-                    top: -30,
-                    width: 180,
-                    height: 180,
-                    borderRadius: 90,
-                    backgroundColor: 'rgba(255,255,255,0.12)',
-                  }}
-                />
-                <View
-                  style={{
-                    position: 'absolute',
-                    right: 40,
-                    bottom: -20,
-                    width: 100,
-                    height: 100,
-                    borderRadius: 50,
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                  }}
-                />
-
+                {brandSettings.data.home_title || 'طعم البيت يوصلك لبيتك 🍽️'}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fontFamily.medium,
+                  fontSize: fontSize.sm,
+                  color: 'rgba(255,255,255,0.9)',
+                  textAlign: 'right',
+                  marginTop: 6,
+                }}
+              >
+                {brandSettings.data.home_subtitle || 'أكل بيتي مصري أصيل، محضّر بحب'}
+              </Text>
+              <Pressable
+                onPress={() => router.push('/(tabs)/menu')}
+                style={{
+                  marginTop: 14,
+                  alignSelf: 'flex-end',
+                  backgroundColor: colors.primary,
+                  borderRadius: radius.full,
+                  paddingHorizontal: 20,
+                  paddingVertical: 9,
+                }}
+              >
                 <Text
                   style={{
-                    fontSize: 52,
-                    position: 'absolute',
-                    right: spacing.xl,
-                    bottom: spacing.md,
-                  }}
-                >
-                  {banner.emoji}
-                </Text>
-
-                <Text
-                  style={{
-                    fontFamily: fontFamily.extrabold,
-                    fontSize: 26,
                     color: '#fff',
-                    textAlign: 'right',
-                    lineHeight: 34,
-                  }}
-                >
-                  {banner.title}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: fontFamily.regular,
+                    fontFamily: fontFamily.bold,
                     fontSize: fontSize.sm,
-                    color: 'rgba(255,255,255,0.85)',
-                    textAlign: 'right',
-                    marginTop: 6,
                   }}
                 >
-                  {banner.subtitle}
+                  تصفح القائمة 👈
                 </Text>
-                <Pressable
-                  onPress={() => router.push('/(tabs)/menu')}
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View>
+            <ScrollView
+              ref={heroScrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={onHeroScroll}
+              scrollEventThrottle={16}
+            >
+              {HERO_BANNERS.map((banner) => (
+                <View
+                  key={banner.id}
                   style={{
-                    marginTop: 14,
-                    alignSelf: 'flex-end',
-                    backgroundColor: 'rgba(255,255,255,0.22)',
-                    borderRadius: radius.full,
-                    paddingHorizontal: 18,
-                    paddingVertical: 8,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.35)',
+                    width: SCREEN_W,
+                    height: 200,
+                    backgroundColor: banner.gradient[0],
+                    justifyContent: 'center',
+                    paddingHorizontal: spacing.xl,
+                    paddingVertical: spacing.lg,
                   }}
                 >
+                  {/* Background circle decoration */}
+                  <View
+                    style={{
+                      position: 'absolute',
+                      right: -30,
+                      top: -30,
+                      width: 180,
+                      height: 180,
+                      borderRadius: 90,
+                      backgroundColor: 'rgba(255,255,255,0.12)',
+                    }}
+                  />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      right: 40,
+                      bottom: -20,
+                      width: 100,
+                      height: 100,
+                      borderRadius: 50,
+                      backgroundColor: 'rgba(255,255,255,0.08)',
+                    }}
+                  />
+
                   <Text
                     style={{
-                      color: '#fff',
-                      fontFamily: fontFamily.bold,
-                      fontSize: fontSize.sm,
+                      fontSize: 52,
+                      position: 'absolute',
+                      right: spacing.xl,
+                      bottom: spacing.md,
                     }}
                   >
-                    {banner.cta}
+                    {banner.emoji}
                   </Text>
-                </Pressable>
-              </View>
-            ))}
-          </ScrollView>
 
-          {/* Dots */}
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: 6,
-              paddingVertical: 10,
-            }}
-          >
-            {HERO_BANNERS.map((_, i) => (
-              <View
-                key={i}
-                style={{
-                  width: i === heroBanner ? 20 : 6,
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor:
-                    i === heroBanner ? colors.primary : colors.border,
-                }}
-              />
-            ))}
+                  <Text
+                    style={{
+                      fontFamily: fontFamily.extrabold,
+                      fontSize: 26,
+                      color: '#fff',
+                      textAlign: 'right',
+                      lineHeight: 34,
+                    }}
+                  >
+                    {banner.title}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: fontFamily.regular,
+                      fontSize: fontSize.sm,
+                      color: 'rgba(255,255,255,0.85)',
+                      textAlign: 'right',
+                      marginTop: 6,
+                    }}
+                  >
+                    {banner.subtitle}
+                  </Text>
+                  <Pressable
+                    onPress={() => router.push('/(tabs)/menu')}
+                    style={{
+                      marginTop: 14,
+                      alignSelf: 'flex-end',
+                      backgroundColor: 'rgba(255,255,255,0.22)',
+                      borderRadius: radius.full,
+                      paddingHorizontal: 18,
+                      paddingVertical: 8,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.35)',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#fff',
+                        fontFamily: fontFamily.bold,
+                        fontSize: fontSize.sm,
+                      }}
+                    >
+                      {banner.cta}
+                    </Text>
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* Dots */}
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 6,
+                paddingVertical: 10,
+              }}
+            >
+              {HERO_BANNERS.map((_, i) => (
+                <View
+                  key={i}
+                  style={{
+                    width: i === heroBanner ? 20 : 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor:
+                      i === heroBanner ? colors.primary : colors.border,
+                  }}
+                />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* ── Greeting + Search ── */}
         <View

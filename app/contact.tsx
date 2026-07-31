@@ -5,8 +5,8 @@ import { useTheme } from '@/theme/ThemeContext';
 import { fontFamily, fontSize, radius, spacing } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Button } from '@/components/ui/Button';
+import { openWhatsApp } from '@/lib/whatsapp';
 import { fetchSettings } from '@/features/home/api/settings.api';
-import { buildWhatsAppUrl } from '@/utils';
 import { QUERY_KEYS } from '@/constants';
 
 export default function ContactScreen() {
@@ -33,7 +33,7 @@ export default function ContactScreen() {
             icon={<MessageCircle size={22} color={colors.success} />}
             title="واتساب"
             subtitle={wa}
-            action={{ label: 'تحدث معنا', onPress: () => Linking.openURL(buildWhatsAppUrl(wa, 'السلام عليكم، أريد الاستفسار...')) }}
+            action={{ label: 'تحدث معنا', onPress: () => openWhatsApp(wa, 'السلام عليكم، تواصلت معكم من تطبيق سفرة 🍽️') }}
             colors={colors}
           />
         )}

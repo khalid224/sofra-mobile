@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { handleSupabaseError } from '@/lib/errors';
 import type { AppNotification, UUID } from '@/types';
 
-const NOTIFICATION_FIELDS = `id, user_id, title, body, type, is_read, created_at`;
+const NOTIFICATION_FIELDS = `id, user_id, title, body, type, is_read, created_at, data`;
 
 export async function fetchNotifications(userId: UUID): Promise<AppNotification[]> {
   const { data, error } = await supabase

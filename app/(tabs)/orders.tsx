@@ -67,9 +67,10 @@ export default function OrdersScreen() {
       ) : (
         <FlatList
           data={orders.data}
-          keyExtractor={(o) => o.id}
+          keyExtractor={(o, i) => o.id || `ord-${i}`}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-          contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
+          contentContainerStyle={{ padding: spacing.md }}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
           renderItem={({ item }) => <OrderCard order={item} onPress={() => router.push(`/order/${item.id}`)} colors={colors} />}
         />
       )}

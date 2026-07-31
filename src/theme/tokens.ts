@@ -1,126 +1,125 @@
-// SOFRA ENTERPRISE — Design Tokens
-// Palette: Warm Orange / Cream / Deep Mocha — Premium Mediterranean
-// Converted from oklch in src/styles.css
+// SOFRA BRAND REFRESH — Design Tokens
+// Palette: Cream (#F6EFE3), Sand (#E9DCC3), Terracotta (#C1694A / #A8563A), Olive (#71794C), Deep Brown (#4A342A)
 
 export const lightColors = {
   // Background
-  background: '#FAFAFA',
+  background: '#F6EFE3',
   surface: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
 
   // Card
   card: '#FFFFFF',
-  cardForeground: '#1A0A05',
+  cardForeground: '#4A342A',
 
-  // Primary — Terracotta / Warm Orange
-  primary: '#CA4B20',
-  primaryLight: '#E8734A',
-  primaryDark: '#A33A16',
+  // Primary — Terracotta
+  primary: '#C1694A',
+  primaryLight: '#D4785A',
+  primaryDark: '#A8563A',
   primaryForeground: '#FFFFFF',
-  primarySubtle: '#FDF0EB',
+  primarySubtle: '#FAF0EC',
 
-  // Accent — Saffron
-  accent: '#CB9317',
-  accentForeground: '#1A0A05',
-  accentSubtle: '#FEF9EC',
+  // Accent — Olive
+  accent: '#71794C',
+  accentForeground: '#FFFFFF',
+  accentSubtle: '#F4F5EE',
 
-  // Foreground
-  foreground: '#1A0A05',
-  foregroundSecondary: '#4A2E22',
-  foregroundTertiary: '#71574B',
+  // Foreground — Deep Brown
+  foreground: '#4A342A',
+  foregroundSecondary: '#71574B',
+  foregroundTertiary: '#9A8275',
 
-  // Muted
-  muted: '#F5EDE5',
+  // Muted — Sand & Warm Muted
+  muted: '#EDE0CC',
   mutedForeground: '#71574B',
 
   // Border & Input
-  border: '#E8DDD6',
-  borderLight: '#F0E8E2',
-  input: '#EDE4DC',
-  inputFocus: '#CA4B20',
+  border: '#E9DCC3',
+  borderLight: '#F3EBE0',
+  input: '#FAF5EE',
+  inputFocus: '#C1694A',
 
   // Semantic
-  success: '#22C55E',
+  success: '#5A7543',
   successForeground: '#FFFFFF',
-  successSubtle: '#F0FDF4',
+  successSubtle: '#F2F5EF',
 
-  warning: '#F59E0B',
+  warning: '#D97706',
   warningForeground: '#FFFFFF',
-  warningSubtle: '#FFFBEB',
+  warningSubtle: '#FEF3C7',
 
-  destructive: '#EF4444',
+  destructive: '#DC2626',
   destructiveForeground: '#FFFFFF',
-  destructiveSubtle: '#FEF2F2',
+  destructiveSubtle: '#FEE2E2',
 
-  info: '#3B82F6',
+  info: '#2563EB',
   infoForeground: '#FFFFFF',
   infoSubtle: '#EFF6FF',
 
   // Overlay
-  overlay: 'rgba(0,0,0,0.5)',
-  overlayLight: 'rgba(0,0,0,0.3)',
+  overlay: 'rgba(74, 52, 42, 0.5)',
+  overlayLight: 'rgba(74, 52, 42, 0.3)',
 
   // Skeleton
-  skeleton: '#F0E8E2',
-  skeletonHighlight: '#FAF5F2',
+  skeleton: '#E9DCC3',
+  skeletonHighlight: '#F6EFE3',
 
   // Rating
   star: '#F59E0B',
 };
 
 export const darkColors: typeof lightColors = {
-  background: '#0F0805',
-  surface: '#1C110C',
-  surfaceElevated: '#261812',
+  background: '#1C1008',
+  surface: '#261510',
+  surfaceElevated: '#331B14',
 
-  card: '#1C110C',
-  cardForeground: '#F5EDE5',
+  card: '#261510',
+  cardForeground: '#F6EFE3',
 
-  primary: '#E8734A',
-  primaryLight: '#F09070',
-  primaryDark: '#CA4B20',
+  primary: '#D4785A',
+  primaryLight: '#E2937A',
+  primaryDark: '#C1694A',
   primaryForeground: '#FFFFFF',
-  primarySubtle: '#2A150D',
+  primarySubtle: '#3B1F16',
 
-  accent: '#D4A832',
-  accentForeground: '#0F0805',
-  accentSubtle: '#241A06',
+  accent: '#89925E',
+  accentForeground: '#FFFFFF',
+  accentSubtle: '#222616',
 
-  foreground: '#F5EDE5',
-  foregroundSecondary: '#D4C4BA',
-  foregroundTertiary: '#A08070',
+  foreground: '#F6EFE3',
+  foregroundSecondary: '#E9DCC3',
+  foregroundTertiary: '#BCAFA4',
 
-  muted: '#261812',
-  mutedForeground: '#A08070',
+  muted: '#2E1A10',
+  mutedForeground: '#BCAFA4',
 
-  border: '#2E1A12',
-  borderLight: '#261812',
-  input: '#2E1A12',
-  inputFocus: '#E8734A',
+  border: '#3D2416',
+  borderLight: '#2E1A10',
+  input: '#2E1A10',
+  inputFocus: '#D4785A',
 
-  success: '#4ADE80',
-  successForeground: '#0F0805',
-  successSubtle: '#052E16',
+  success: '#6B8E4E',
+  successForeground: '#1C1008',
+  successSubtle: '#17240E',
 
-  warning: '#FCD34D',
-  warningForeground: '#0F0805',
-  warningSubtle: '#1C1505',
+  warning: '#F59E0B',
+  warningForeground: '#1C1008',
+  warningSubtle: '#291A03',
 
-  destructive: '#F87171',
-  destructiveForeground: '#0F0805',
-  destructiveSubtle: '#2C0A0A',
+  destructive: '#EF4444',
+  destructiveForeground: '#FFFFFF',
+  destructiveSubtle: '#360C0C',
 
-  info: '#60A5FA',
-  infoForeground: '#0F0805',
-  infoSubtle: '#0C1A2E',
+  info: '#3B82F6',
+  infoForeground: '#FFFFFF',
+  infoSubtle: '#0D1E3A',
 
   overlay: 'rgba(0,0,0,0.7)',
   overlayLight: 'rgba(0,0,0,0.5)',
 
-  skeleton: '#261812',
-  skeletonHighlight: '#2E1A12',
+  skeleton: '#2E1A10',
+  skeletonHighlight: '#3D2416',
 
-  star: '#FCD34D',
+  star: '#F59E0B',
 };
 
 export type ThemeColors = typeof lightColors;
@@ -137,7 +136,7 @@ export const spacing = {
   '4xl': 64,
 } as const;
 
-// ─── Border Radius (per 09_UI_UX_REDESIGN_SPEC) ──────────────
+// ─── Border Radius ───────────────────────────────────────────
 export const radius = {
   sm: 8,
   md: 12,
@@ -148,13 +147,13 @@ export const radius = {
   full: 9999,
 } as const;
 
-// ─── Typography ──────────────────────────────────────────────
+// ─── Typography (Tajawal) ────────────────────────────────────
 export const fontFamily = {
-  regular: 'Cairo_400Regular',
-  medium: 'Cairo_500Medium',
-  semibold: 'Cairo_600SemiBold',
-  bold: 'Cairo_700Bold',
-  extrabold: 'Cairo_800ExtraBold',
+  regular: 'Tajawal_400Regular',
+  medium: 'Tajawal_500Medium',
+  semibold: 'Tajawal_700Bold',
+  bold: 'Tajawal_700Bold',
+  extrabold: 'Tajawal_800ExtraBold',
 } as const;
 
 export const fontSize = {
@@ -171,41 +170,41 @@ export const fontSize = {
   '6xl': 40,
 } as const;
 
-// ─── Shadows (soft elevation per spec) ───────────────────────
+// ─── Shadows ────────────────────────────────────────────────
 export const shadow = {
   sm: {
-    shadowColor: '#CA4B20',
+    shadowColor: '#4A342A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
   md: {
-    shadowColor: '#CA4B20',
+    shadowColor: '#4A342A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 4,
   },
   lg: {
-    shadowColor: '#CA4B20',
+    shadowColor: '#4A342A',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.15,
     shadowRadius: 24,
     elevation: 8,
   },
   card: {
-    shadowColor: '#000000',
+    shadowColor: '#4A342A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 3,
   },
 } as const;
 
 export const gradients = {
-  primary: ['#CA4B20', '#E8734A'] as const,
-  warm: ['#CA4B20', '#CB9317'] as const,
-  hero: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)'] as const,
-  card: ['rgba(255,255,255,0)', 'rgba(255,255,255,0.95)'] as const,
+  primary: ['#C1694A', '#D4785A'] as const,
+  warm: ['#C1694A', '#71794C'] as const,
+  hero: ['rgba(74, 52, 42, 0)', 'rgba(74, 52, 42, 0.8)'] as const,
+  card: ['rgba(255,255,255,0)', 'rgba(255,255,255,0.98)'] as const,
 };

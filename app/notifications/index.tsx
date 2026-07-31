@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { Bell, BellOff, Check } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +35,7 @@ const TYPE_EMOJI: Record<NotificationType, string> = {
 export default function NotificationsScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
+  const router = useRouter();
   const qc = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -59,6 +61,17 @@ export default function NotificationsScreen() {
     await notifications.refetch();
     setRefreshing(false);
   }, [notifications]);
+
+  const handlePressNotification = (item: AppNotification) => {
+    if (!item.is_read) {
+      markOneMut.mutate(item.id);
+    }
+    if (item.data?.order_id) {
+      router.push(`/order/${item.data.order_id}` as never);
+    } else if (item.data?.screen) {
+      router.push(item.data.screen as never);
+    }
+  };
 
   const unreadCount = (notifications.data ?? []).filter((n) => !n.is_read).length;
 
@@ -101,13 +114,14 @@ export default function NotificationsScreen() {
       ) : (
         <FlatList
           data={notifications.data}
-          keyExtractor={(n) => n.id}
+          keyExtractor={(item, index) => item.id || `notif-${index}`}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-          contentContainerStyle={{ padding: spacing.md, gap: spacing.sm }}
+          contentContainerStyle={{ padding: spacing.md }}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
           renderItem={({ item }) => (
             <NotificationCard
               notification={item}
-              onPress={() => !item.is_read && markOneMut.mutate(item.id)}
+              onPress={() => handlePressNotification(item)}
               colors={colors}
             />
           )}

@@ -101,7 +101,7 @@ export async function fetchMeals(filters: MealFilters = {}): Promise<PaginatedRe
     case 'rating': q = q.order('rating', { ascending: false }); break;
     case 'price_asc': q = q.order('price', { ascending: true }); break;
     case 'price_desc': q = q.order('price', { ascending: false }); break;
-    case 'most_favorited': q = q.order('favorites_count', { ascending: false }); break;
+    case 'most_favorited': q = q.order('rating', { ascending: false }).order('reviews_count', { ascending: false }); break;
     default: q = q.order('sort_order', { ascending: true }).order('created_at', { ascending: false });
   }
 

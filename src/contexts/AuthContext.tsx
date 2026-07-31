@@ -7,8 +7,10 @@ import {
   type ReactNode,
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { handleSupabaseError } from '@/lib/errors';
+import { STORAGE_KEYS } from '@/constants';
 import type { Profile, UserRole } from '@/types';
 
 interface AuthContextValue {
@@ -91,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    await AsyncStorage.removeItem(STORAGE_KEYS.CART).catch(() => undefined);
     setProfile(null);
   };
 

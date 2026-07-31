@@ -71,8 +71,9 @@ export default function ChatScreen() {
         <FlatList
           ref={flatRef}
           data={messages.data ?? []}
-          keyExtractor={(m) => m.id}
-          contentContainerStyle={{ padding: spacing.md, gap: spacing.sm, paddingBottom: 16 }}
+          keyExtractor={(m, i) => m.id || `msg-${i}`}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: 16 }}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
           ListEmptyComponent={
             <View style={{ padding: spacing.xl, alignItems: 'center' }}>
               <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground, textAlign: 'center' }}>

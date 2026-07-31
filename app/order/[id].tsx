@@ -13,7 +13,8 @@ import { SkeletonList } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/ui/States';
 import { fetchOrderById, fetchOrderItems, fetchOrderTimeline } from '@/features/orders/api/orders.api';
 import { fetchSettings } from '@/features/home/api/settings.api';
-import { formatEGP, formatDate, getStepIndex, buildWhatsAppUrl } from '@/utils';
+import { formatEGP, formatDate, getStepIndex } from '@/utils';
+import { openWhatsApp } from '@/lib/whatsapp';
 import { ORDER_STATUS_LABELS, ORDER_TIMELINE_STEPS } from '@/types';
 import { QUERY_KEYS, ORDER_POLL_INTERVAL } from '@/constants';
 import { RatingBanner } from '@/features/reviews/components/RatingBanner';
@@ -199,8 +200,8 @@ export default function OrderTrackScreen() {
 
           {/* Actions */}
           <View style={{ gap: spacing.sm }}>
-            <Button variant="outline" fullWidth onPress={() => router.push('/chat')}>
-              تواصل مع خدمة العملاء
+            <Button variant="primary" fullWidth onPress={() => openWhatsApp(settings.data?.whatsapp_number, `السلام عليكم، لدي استفسار بخصوص الطلب رقم #ORD-${order.data.order_number}`)}>
+              تواصل معنا عبر واتساب 💬
             </Button>
             {settings.data?.business_phone && (
               <Button variant="ghost" fullWidth onPress={() => Linking.openURL(`tel:${settings.data?.business_phone}`)}>

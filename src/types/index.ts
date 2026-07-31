@@ -358,6 +358,8 @@ export interface AppNotification {
   type: NotificationType;
   is_read: boolean;
   created_at: ISODateString;
+  // Optional deep-link payload stored in the DB's `data` JSONB column
+  data?: Record<string, string> | null;
 }
 
 // ─── API Response ────────────────────────────────────────────

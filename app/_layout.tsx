@@ -104,6 +104,10 @@ export default function RootLayout() {
     Cairo_600SemiBold,
     Cairo_700Bold,
     Cairo_800ExtraBold,
+    Tajawal_400Regular: Cairo_400Regular,
+    Tajawal_500Medium: Cairo_500Medium,
+    Tajawal_700Bold: Cairo_700Bold,
+    Tajawal_800ExtraBold: Cairo_800ExtraBold,
   });
   const [ready, setReady] = useState(false);
 
