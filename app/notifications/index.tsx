@@ -66,10 +66,14 @@ export default function NotificationsScreen() {
     if (!item.is_read) {
       markOneMut.mutate(item.id);
     }
-    if (item.data?.order_id) {
-      router.push(`/order/${item.data.order_id}` as never);
-    } else if (item.data?.screen) {
-      router.push(item.data.screen as never);
+    try {
+      if (item.data?.order_id) {
+        router.push(`/order/${item.data.order_id}` as never);
+      } else if (item.data?.screen) {
+        router.push(item.data.screen as never);
+      }
+    } catch {
+      // Invalid deep-link — don't crash the screen
     }
   };
 
@@ -84,7 +88,14 @@ export default function NotificationsScreen() {
     );
   }
 
-  if (notifications.isError) return <ErrorState onRetry={() => notifications.refetch()} />;
+  if (notifications.isError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <ScreenHeader title="الإشعارات" showBack showThemeToggle={false} />
+        <ErrorState onRetry={() => notifications.refetch()} />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -184,7 +195,7 @@ function NotificationCard({
           {n.body}
         </Text>
         <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: 'right' }}>
-          {formatTimeAgo(n.created_at)}
+          {n.created_at ? (() => { try { return formatTimeAgo(n.created_at); } catch { return ''; } })() : ''}
         </Text>
       </View>
     </Pressable>

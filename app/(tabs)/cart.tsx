@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Primitives';
 import { EmptyState } from '@/components/ui/States';
 import { Divider } from '@/components/ui/Primitives';
-import { useCart } from '@/contexts/CartContext';
+import { useCart, getCartItemKey } from '@/contexts/CartContext';
 import { formatEGP } from '@/utils';
 import type { CartItem } from '@/types';
 
@@ -51,7 +51,7 @@ export default function CartScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <FlatList
           data={items}
-          keyExtractor={(item, index) => item.variant_id ? `${item.meal_id}-${item.variant_id}` : item.meal_id || `cart-${index}`}
+          keyExtractor={(item) => item.variant_id ? `${item.meal_id}-${item.variant_id}` : item.meal_id}
           contentContainerStyle={{ padding: spacing.md, paddingBottom: 200 }}
           ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
           renderItem={({ item }) => <CartItemCard item={item} colors={colors} setQuantity={setQuantity} setNotes={setNotes} removeItem={removeItem} />}
@@ -93,7 +93,7 @@ function CartItemCard({ item, colors, setQuantity, setNotes, removeItem }: {
             <Text numberOfLines={2} style={{ fontFamily: fontFamily.bold, fontSize: fontSize.md, color: colors.foreground, flex: 1, textAlign: 'right' }}>
               {item.name}
             </Text>
-            <Pressable onPress={() => removeItem(item.meal_id)} hitSlop={8} style={{ paddingLeft: 8 }}>
+            <Pressable onPress={() => removeItem(getCartItemKey(item))} hitSlop={8} style={{ paddingLeft: 8 }}>
               <Trash2 size={18} color={colors.destructive} />
             </Pressable>
           </View>
@@ -105,7 +105,7 @@ function CartItemCard({ item, colors, setQuantity, setNotes, removeItem }: {
           {/* Quantity stepper */}
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
             <Pressable
-              onPress={() => item.quantity > 1 ? setQuantity(item.meal_id, item.quantity - 1) : removeItem(item.meal_id)}
+              onPress={() => item.quantity > 1 ? setQuantity(getCartItemKey(item), item.quantity - 1) : removeItem(getCartItemKey(item))}
               style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
             >
               <Minus size={14} color={colors.foreground} />
@@ -114,7 +114,7 @@ function CartItemCard({ item, colors, setQuantity, setNotes, removeItem }: {
               {item.quantity}
             </Text>
             <Pressable
-              onPress={() => setQuantity(item.meal_id, item.quantity + 1)}
+              onPress={() => setQuantity(getCartItemKey(item), item.quantity + 1)}
               style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
             >
               <Plus size={14} color="#fff" />
@@ -135,7 +135,7 @@ function CartItemCard({ item, colors, setQuantity, setNotes, removeItem }: {
           <View style={{ marginTop: spacing.sm }}>
             <Input
               value={item.notes}
-              onChangeText={(v) => setNotes(item.meal_id, v)}
+              onChangeText={(v) => setNotes(getCartItemKey(item), v)}
               placeholder="ملاحظات للطاهي (مثل: بدون بصل، ملح خفيف...)"
               style={{ fontSize: fontSize.sm }}
             />

@@ -152,7 +152,9 @@ export default function CheckoutScreen() {
           meal_id: i.meal_id, 
           quantity: i.quantity, 
           customer_notes: i.notes || undefined,
-          today_special_id: i.today_special_id || undefined
+          today_special_id: i.today_special_id || undefined,
+          variant_id: i.variant_id || undefined,
+          extras: i.extras || undefined,
         })),
         estimated_delivery: estimatedDelivery,
       });

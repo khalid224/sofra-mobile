@@ -58,5 +58,6 @@ export const QUERY_KEYS = {
   RESTAURANT_STATUS: 'restaurant-status',
   VARIANTS: 'variants',
   APPROVED_REVIEWS: 'approved-reviews',
+  BRAND_SETTINGS: 'brand-settings',
 } as const;
 

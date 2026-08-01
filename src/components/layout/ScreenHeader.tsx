@@ -1,6 +1,7 @@
 import { View, Text, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { ArrowRight, Moon, Sun, Search, Bell, ShoppingCart, Heart } from 'lucide-react-native';
+import { ArrowRight, Moon, Sun, Search, ShoppingCart, Heart } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeContext';
 import { fontFamily, fontSize, radius, shadow, spacing } from '@/theme/tokens';
@@ -36,6 +37,22 @@ export function ScreenHeader({
   const router = useRouter();
   const { totalItems } = useCart();
   const { user } = useAuth();
+
+  // Brand settings — logo_url from DB
+  const brandQuery = useQuery({
+    queryKey: [QUERY_KEYS.BRAND_SETTINGS],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('brand_settings')
+        .select('key, value')
+        .in('key', ['logo_url', 'home_title']);
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r) => { map[r.key] = r.value ?? ''; });
+      return map;
+    },
+    staleTime: 5 * 60_000, // 5 min
+  });
+  const logoUrl = brandQuery.data?.logo_url ?? '';
 
   // Reactive favorites count
   const favCount = useQuery({
@@ -136,18 +153,26 @@ export function ScreenHeader({
       <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
         {showLogo && (
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: colors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: '#fff', fontFamily: fontFamily.extrabold, fontSize: 16 }}>S</Text>
-            </View>
+            {logoUrl ? (
+              <Image
+                source={{ uri: logoUrl }}
+                style={{ width: 36, height: 36, borderRadius: 18 }}
+                contentFit="contain"
+              />
+            ) : (
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: colors.primary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#fff', fontFamily: fontFamily.extrabold, fontSize: 16 }}>S</Text>
+              </View>
+            )}
             <Text style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize['2xl'], color: colors.primary }}>
               sofra
             </Text>
