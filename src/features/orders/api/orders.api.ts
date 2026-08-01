@@ -50,7 +50,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId: UUI
       customer_notes: i.customer_notes ?? null,
       today_special_id: i.today_special_id ?? null,
       variant_id: i.variant_id ?? null,
-      extras: i.extras ?? null,
+      extras: Array.isArray(i.extras) ? i.extras : [],
     }));
 
     const { data, error } = await supabase.rpc('place_order_atomic', {

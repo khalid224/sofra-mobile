@@ -13,8 +13,20 @@ import { STORAGE_KEYS, MAX_CART_QUANTITY } from '@/constants';
 import { supabase } from '@/lib/supabase';
 
 // Helper to get unique identifier for cart items
-export function getCartItemKey(item: { meal_id: UUID; variant_id?: UUID }): string {
-  return item.variant_id ?? item.meal_id;
+export function getCartItemKey(item: {
+  meal_id: UUID;
+  variant_id?: UUID;
+  extras?: { id: UUID }[];
+}): string {
+  const parts = [item.meal_id];
+  if (item.variant_id) {
+    parts.push(item.variant_id);
+  }
+  if (item.extras && item.extras.length > 0) {
+    const sortedExtraIds = [...item.extras].map((e) => e.id).sort().join(',');
+    if (sortedExtraIds) parts.push(sortedExtraIds);
+  }
+  return parts.join('_');
 }
 
 // ─── State ───────────────────────────────────────────────────

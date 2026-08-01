@@ -72,7 +72,7 @@ begin
     end if;
 
     v_extras_cost := 0;
-    if v_extras is not null and jsonb_array_length(v_extras) > 0 then
+    if v_extras is not null and jsonb_typeof(v_extras) = 'array' and jsonb_array_length(v_extras) > 0 then
       for v_extra_item in select * from jsonb_array_elements(v_extras) loop
         v_extras_cost := v_extras_cost + ((v_extra_item->>'price')::numeric);
       end loop;

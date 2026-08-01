@@ -20,7 +20,7 @@ import { fetchMealById, fetchSimilarMeals, fetchAvailableTodayById } from '@/fea
 import { fetchVariants } from '@/features/menu/api/variants.api';
 import { fetchMealReviews as fetchReviews } from '@/features/reviews/api/reviews.api';
 import { addFavorite, isFavorite, removeFavorite } from '@/features/favorites/api/favorites.api';
-import { useCart } from '@/contexts/CartContext';
+import { useCart, getCartItemKey } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatEGP } from '@/utils';
@@ -163,7 +163,13 @@ export default function FoodDetailScreen() {
       ? (selectedVariant?.is_available ?? false) && !isSoldOut
       : (meal.data?.is_available ?? false);
 
-  const cartKey = selectedVariant?.id ?? (meal.data?.id ?? '');
+  const cartKey = meal.data
+    ? getCartItemKey({
+        meal_id: meal.data.id,
+        variant_id: selectedVariant?.id,
+        extras: selectedExtras,
+      })
+    : '';
   const inCart = cartKey ? getItem(cartKey) : undefined;
 
   const toggleExtra = (extra: MealVariantExtra) => {

@@ -10,7 +10,7 @@ import { fontFamily, fontSize, radius, spacing } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Button } from '@/components/ui/Button';
 import { Input, Label, Divider } from '@/components/ui/Primitives';
-import { useCart } from '@/contexts/CartContext';
+import { useCart, getCartItemKey } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { placeOrder } from '@/features/orders/api/orders.api';
 import { formatEGP, validateEgyptianPhone } from '@/utils';
@@ -199,7 +199,7 @@ export default function CheckoutScreen() {
               ملخص الطلب ({totalItems} صنف)
             </Text>
             {items.map((item) => (
-              <View key={item.meal_id} style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View key={getCartItemKey(item)} style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', marginBottom: 6 }}>
                 <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.foreground }}>
                   {item.name} × {item.quantity}
                   {item.is_today_special && <Text style={{ color: colors.primary, fontSize: 11 }}> (عرض اليوم)</Text>}
