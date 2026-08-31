@@ -11,6 +11,18 @@ export async function fetchNotifications(userId: UUID): Promise<AppNotification[
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(50);
+
+  if (error && error.message.includes('column notifications.data does not exist')) {
+    console.warn('[notifications.api] data column missing, querying basic fields');
+    const fallbackRes = await supabase
+      .from('notifications')
+      .select('id, user_id, title, body, type, is_read, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    return (fallbackRes.data ?? []) as AppNotification[];
+  }
+
   handleSupabaseError(error);
   return (data ?? []) as AppNotification[];
 }

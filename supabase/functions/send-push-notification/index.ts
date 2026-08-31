@@ -22,40 +22,90 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 // Maps each notification_type to its user preference column in notification_preferences
 const PREF_KEY_MAP: Record<string, string> = {
-  promotion:              'notify_specials',
-  order_received:         'notify_orders',
-  order_accepted:         'notify_orders',
-  order_preparing:        'notify_orders',
-  order_ready:            'notify_orders',
+  promotion: 'notify_specials',
+  today_special: 'notify_specials',
+  new_order: 'notify_orders',
+  order_received: 'notify_orders',
+  order_accepted: 'notify_orders',
+  order_preparing: 'notify_orders',
+  order_ready: 'notify_orders',
   order_out_for_delivery: 'notify_orders',
-  order_delivered:        'notify_orders',
-  order_cancelled:        'notify_orders',
-  chat_reply:             'notify_chat',
+  order_delivered: 'notify_orders',
+  order_cancelled: 'notify_orders',
+  chat_reply: 'notify_chat',
 };
 
 const schema = z.object({
-  user_ids:          z.array(z.string().uuid()).min(1),
-  title:             z.string().min(1).max(200),
-  body:              z.string().min(1).max(500),
-  data:              z.record(z.string(), z.unknown()).optional(),
+  user_ids: z.array(z.string().uuid()).min(1),
+  title: z.string().min(1).max(200),
+  body: z.string().min(1).max(500),
+  data: z.record(z.string(), z.unknown()).optional(),
   notification_type: z.string().optional(),
   // Optional geographic segmentation — for targeted broadcasts
   segmentation: z
     .object({
       cities: z.array(z.string()).optional(),
-      areas:  z.array(z.string()).optional(),
+      areas: z.array(z.string()).optional(),
     })
     .optional(),
 });
+
+type ExpoPushTicket = {
+  status: 'ok' | 'error';
+  id?: string;
+  message?: string;
+  details?: { error?: string } & Record<string, unknown>;
+};
+
+function serializeError(error: unknown): string {
+  if (error instanceof Error) {
+    return JSON.stringify(error, Object.getOwnPropertyNames(error));
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    if (!serviceRoleKey || !supabaseUrl) {
+      throw new Error('Missing required Supabase Edge Function secrets');
+    }
     const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      supabaseUrl,
+      serviceRoleKey,
     );
+
+    // Database triggers call with the service-role token. Human callers must
+    // have an authenticated, active admin profile.
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '') ?? '';
+    if (!token) throw new Error('غير مصرح');
+    if (token !== serviceRoleKey) {
+      const { data: { user }, error: authError } = await admin.auth.getUser(token);
+      if (authError || !user) throw new Error('غير مصرح');
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('role, status')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (profile?.role !== 'admin' || profile.status !== 'active') {
+        throw new Error('للمديرين فقط');
+      }
+    }
 
     const body = await req.json();
     const input = schema.parse(body);
@@ -78,20 +128,19 @@ serve(async (req) => {
     if (tokenErr) throw tokenErr;
 
     if (!allTokens || allTokens.length === 0) {
-      console.log('[send-push] no device tokens found');
-      return new Response(JSON.stringify({ ok: true, sent: 0 }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.log('[send-push] status: ok | no device tokens found');
+      return jsonResponse({ ok: true, sent: 0 });
     }
 
     // ── 2. Filter by notification preferences ──
     let eligibleUserIds = [...input.user_ids];
 
     if (prefKey) {
-      const { data: prefs } = await admin
+      const { data: prefs, error: prefErr } = await admin
         .from('notification_preferences')
         .select(`user_id, ${prefKey}`)
         .in('user_id', input.user_ids);
+      if (prefErr) throw prefErr;
 
       const prefMap = new Map<string, boolean>();
       for (const p of prefs ?? []) {
@@ -105,11 +154,12 @@ serve(async (req) => {
 
     // ── 3. Apply geographic segmentation if requested ──
     if (input.segmentation?.cities && input.segmentation.cities.length > 0) {
-      const { data: addresses } = await admin
+      const { data: addresses, error: addressErr } = await admin
         .from('customer_addresses')
         .select('customer_id, city')
         .in('customer_id', eligibleUserIds)
         .eq('is_default', true);
+      if (addressErr) throw addressErr;
 
       const cityMap = new Map<string, string>();
       for (const a of addresses ?? []) {
@@ -129,52 +179,99 @@ serve(async (req) => {
 
     // ── 4. Build message list for eligible tokens ──
     const eligibleSet = new Set(eligibleUserIds);
-    const tokens = (allTokens as { token: string; user_id: string }[]).filter((t) =>
-      eligibleSet.has(t.user_id),
+    const tokens = (allTokens as { token: string; user_id: string }[]).filter(
+      (item) =>
+        eligibleSet.has(item.user_id) &&
+        /^(ExponentPushToken|ExpoPushToken)\[[^\]]+\]$/.test(item.token),
     );
 
     if (tokens.length === 0) {
       console.log('[send-push] no eligible tokens after filtering');
-      return new Response(
-        JSON.stringify({ ok: true, sent: 0, filtered_out: allTokens.length }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+      return jsonResponse({ ok: true, sent: 0, filtered_out: allTokens.length });
     }
 
     const messages = tokens.map((t) => ({
-      to:        t.token,
-      sound:     'default',
-      title:     input.title,
-      body:      input.body,
-      data:      input.data ?? {},
+      to: t.token,
+      sound: 'default',
+      title: input.title,
+      body: input.body,
+      data: input.data ?? {},
       channelId: 'default',
     }));
 
     // ── 5. Send in batches of 100 (Expo limit) ──
     const BATCH_SIZE = 100;
-    let totalSent = 0;
+    let totalAccepted = 0;
+    let totalRejected = 0;
+    const ticketErrors: Array<Record<string, unknown>> = [];
     for (let i = 0; i < messages.length; i += BATCH_SIZE) {
       const batch = messages.slice(i, i + BATCH_SIZE);
       const expoRes = await fetch(EXPO_PUSH_URL, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body:    JSON.stringify(batch),
+        body: JSON.stringify(batch),
       });
-      const result = await expoRes.json();
-      console.log('[send-push] batch', Math.floor(i / BATCH_SIZE) + 1, 'sent', batch.length, 'result:', JSON.stringify(result).slice(0, 100));
-      totalSent += batch.length;
+      const rawResult = await expoRes.text();
+      if (!expoRes.ok) {
+        throw new Error(
+          `Expo Push API HTTP ${expoRes.status}: ${rawResult}`,
+        );
+      }
+
+      let result: { data?: ExpoPushTicket[]; errors?: unknown };
+      try {
+        result = JSON.parse(rawResult) as { data?: ExpoPushTicket[]; errors?: unknown };
+      } catch {
+        throw new Error(`Expo Push API returned invalid JSON: ${rawResult}`);
+      }
+
+      const tickets = result.data ?? [];
+      if (tickets.length !== batch.length) {
+        throw new Error(
+          `Expo Push API returned ${tickets.length} tickets for ${batch.length} messages: ${rawResult}`,
+        );
+      }
+
+      tickets.forEach((ticket, ticketIndex) => {
+        if (ticket.status === 'ok') {
+          totalAccepted += 1;
+          return;
+        }
+        totalRejected += 1;
+        ticketErrors.push({
+          batch: Math.floor(i / BATCH_SIZE) + 1,
+          index: ticketIndex,
+          message: ticket.message,
+          details: ticket.details,
+        });
+      });
+
+      console.log(
+        '[send-push] expo batch:',
+        JSON.stringify({
+          batch: Math.floor(i / BATCH_SIZE) + 1,
+          messages: batch.length,
+          accepted: tickets.filter((ticket) => ticket.status === 'ok').length,
+          rejected: tickets.filter((ticket) => ticket.status === 'error').length,
+          result,
+        }),
+      );
     }
 
-    return new Response(
-      JSON.stringify({ ok: true, sent: totalSent }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    const responseBody = {
+      ok: totalRejected === 0,
+      sent: totalAccepted,
+      rejected: totalRejected,
+      errors: ticketErrors,
+    };
+    console.log(
+      `[send-push] status: ${totalRejected === 0 ? 'ok' : 'partial_error'} | result:`,
+      JSON.stringify(responseBody),
     );
+    return jsonResponse(responseBody, totalAccepted === 0 && totalRejected > 0 ? 502 : 200);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'خطأ غير متوقع';
-    console.error('[send-push] error:', message);
-    return new Response(JSON.stringify({ error: message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
+    console.error('[send-push] status: error | full_error:', serializeError(err));
+    return jsonResponse({ ok: false, error: message }, 400);
   }
 });

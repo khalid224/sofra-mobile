@@ -15,6 +15,19 @@ export async function registerForPushNotificationsAsync(): Promise<string> {
     throw new Error("Must use physical device for push notifications");
   }
 
+  // Android 13+ will not return a push token until at least one channel
+  // exists. Create it before requesting notification permission.
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "إشعارات سفرة",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#0F766E",
+      sound: "default",
+      enableVibrate: true,
+    });
+  }
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -27,23 +40,13 @@ export async function registerForPushNotificationsAsync(): Promise<string> {
     throw new Error("Notification permission denied");
   }
 
-  const projectId = "b4b959e8-ff21-43dc-9f0f-541a3f5809bb";
-
-  console.log("Expo Config");
-  console.log(Constants.expoConfig);
-
-  console.log("ProjectId");
-  console.log(projectId);
-  const token = await Notifications.getExpoPushTokenAsync({ projectId });
-
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#CA4B20",
-    });
+  const projectId = (
+    Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId
+  ) as string | undefined;
+  if (!projectId) {
+    throw new Error("Expo project ID is not configured");
   }
+  const token = await Notifications.getExpoPushTokenAsync({ projectId });
 
   return token.data;
 }

@@ -61,8 +61,8 @@ serve(async (req) => {
     if (!authHeader) throw new Error('غير مصرح');
     const { data: { user } } = await admin.auth.getUser(authHeader.replace('Bearer ', ''));
     if (!user) throw new Error('غير مصرح');
-    const { data: prof } = await admin.from('profiles').select('role').eq('id', user.id).single();
-    if (prof?.role !== 'admin') throw new Error('للمديرين فقط');
+    const { data: prof } = await admin.from('profiles').select('role, status').eq('id', user.id).single();
+    if (prof?.role !== 'admin' || prof.status !== 'active') throw new Error('للمديرين النشطين فقط');
 
     const body = await req.json();
     const input = schema.parse(body);
@@ -74,6 +74,9 @@ serve(async (req) => {
       .eq('id', input.order_id)
       .single();
     if (orderErr || !order) throw new Error('الطلب غير موجود');
+    if (!['pending_admin', 'dispatching', 'waiting_cook'].includes(order.status)) {
+      throw new Error('لا يمكن تعيين طاهٍ في حالة الطلب الحالية');
+    }
 
     let assignedCookId = input.cook_id;
 
@@ -162,11 +165,12 @@ serve(async (req) => {
     if (!cook) throw new Error('الطاهي غير موجود');
 
     // ── Update order: assign cook + move to waiting_cook ──
-    await admin.from('orders').update({
+    const { error: assignmentError } = await admin.from('orders').update({
       cook_id: assignedCookId,
       status: 'waiting_cook',
       updated_at: new Date().toISOString(),
     }).eq('id', input.order_id);
+    if (assignmentError) throw assignmentError;
 
     // ── Dispatch history ──
     const { data: lastDispatch } = await admin
@@ -180,21 +184,23 @@ serve(async (req) => {
     const attemptNumber =
       ((lastDispatch as { attempt_number: number } | null)?.attempt_number ?? 0) + 1;
 
-    await admin.from('dispatch_history').insert({
+    const { error: dispatchError } = await admin.from('dispatch_history').insert({
       order_id: input.order_id,
       cook_id: assignedCookId,
       attempt_number: attemptNumber,
       status: 'sent',
       sent_at: new Date().toISOString(),
     });
+    if (dispatchError) throw dispatchError;
 
     // ── Order timeline ──
-    await admin.from('order_timeline').insert({
+    const { error: timelineError } = await admin.from('order_timeline').insert({
       order_id: input.order_id,
       status: 'waiting_cook',
       created_by: user.id,
       notes: `تم إرسال الطلب للطاهي ${cook.full_name} — المحاولة #${attemptNumber}`,
     });
+    if (timelineError) throw timelineError;
 
     // ── Generate WhatsApp message ──
     const { data: orderItems } = await admin

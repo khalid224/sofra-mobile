@@ -6,7 +6,9 @@ const ORDER_FIELDS = `
   id, customer_id, address_id, cook_id, order_number,
   subtotal, delivery_fee, discount, tax, total,
   status, payment_method, payment_status, notes,
-  estimated_delivery, created_at, updated_at
+  delivery_name, delivery_phone, delivery_email,
+  delivery_address, delivery_city, delivery_area,
+  estimated_delivery, is_scheduled, scheduled_for, created_at, updated_at
 `;
 
 const ORDER_ITEM_FIELDS = `
@@ -24,7 +26,7 @@ export interface PlaceOrderInput {
   delivery_city: string;
   delivery_area: string;
   notes?: string;
-  payment_method: 'cash' | 'card' | 'wallet';
+  payment_method: 'cash';
   items: Array<{
     meal_id: UUID;
     quantity: number;
@@ -34,61 +36,57 @@ export interface PlaceOrderInput {
     extras?: Array<{ id: UUID; name: string; price: number }>;
   }>;
   estimated_delivery?: string; // ISO datetime string for preparation/delivery schedule
+  is_scheduled?: boolean;
+  scheduled_for?: string;
 }
 
-export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId: UUID; orderNumber: string }> {
-  const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id ?? null;
-
-  let lastErrorMessage = '';
-
-  // ── Attempt 1: Atomic RPC (preferred — enforces stock, variants, locking) ──
-  try {
-    const rpcItems = input.items.map((i) => ({
-      meal_id: i.meal_id,
-      quantity: i.quantity,
-      customer_notes: i.customer_notes ?? null,
-      today_special_id: i.today_special_id ?? null,
-      variant_id: i.variant_id ?? null,
-      extras: Array.isArray(i.extras) ? i.extras : [],
-    }));
-
-    const { data, error } = await supabase.rpc('place_order_atomic', {
-      p_customer_id: userId,
-      p_payment_method: input.payment_method,
-      p_notes: input.notes ?? null,
-      p_items: rpcItems,
-      p_estimated_delivery: input.estimated_delivery ?? null,
-    });
-
-    if (!error && data) {
-      const result = data as { orderId: UUID; orderNumber: string };
-      return result;
+export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId: UUID; orderNumber: string; isScheduled?: boolean }> {
+  if (input.customer_name.trim().length < 2) throw new Error('اكتب اسم المستلم بشكل صحيح');
+  if (input.delivery_area.trim().length < 2) throw new Error('اكتب اسم المنطقة بشكل صحيح');
+  if (input.delivery_address.trim().length < 5) throw new Error('اكتب اسم الشارع بالتفصيل؛ رقم المبنى اختياري');
+  if (input.items.length < 1) throw new Error('السلة فارغة');
+  if (input.items.length > 30) throw new Error('عدد الأصناف في الطلب أكبر من الحد المسموح');
+  for (const item of input.items) {
+    if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 20) {
+      throw new Error('توجد كمية غير صالحة في السلة');
     }
-
-    if (error) {
-      lastErrorMessage = error.message;
-      console.warn('[placeOrder] RPC failed:', error.message);
-    }
-  } catch (e: any) {
-    lastErrorMessage = e?.message || lastErrorMessage;
-    console.warn('[placeOrder] RPC threw:', e);
+    if ((item.customer_notes?.length ?? 0) > 500) throw new Error('ملاحظات أحد الأصناف طويلة جدًا');
   }
 
-  // ── Attempt 2: Edge Function (if deployed) ────────────────────────────────
-  try {
-    const { data, error } = await supabase.functions.invoke('place-order', { body: input });
-    if (!error && data) return data as { orderId: UUID; orderNumber: string };
-    if (error) {
-      console.warn('[placeOrder] Edge function failed:', error);
-    }
-  } catch (e: any) {
-    console.warn('[placeOrder] Edge function threw:', e);
-  }
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  handleSupabaseError(authError);
+  if (!user) throw new Error('يجب تسجيل الدخول قبل إتمام الطلب');
 
-  // ── STOP: Unsafe direct client-side insert is STRICTLY PROHIBITED ──
-  // If both safe server-side mechanisms fail, stop and throw an explicit Arabic retry error.
-  throw new Error(lastErrorMessage || 'حدث خطأ أثناء معالجة الطلب، يرجى المحاولة مرة أخرى.');
+  const payload = {
+    payment_method: input.payment_method,
+    notes: input.notes ?? null,
+    scheduled_for: input.scheduled_for ?? input.estimated_delivery ?? null,
+    is_scheduled: input.is_scheduled ?? false,
+    delivery: {
+      name: input.customer_name.trim(),
+      phone: input.customer_phone.trim(),
+      email: input.customer_email?.trim() || null,
+      address: input.delivery_address.trim(),
+      city: input.delivery_city.trim(),
+      area: input.delivery_area.trim(),
+    },
+    items: input.items.map((item) => ({
+      meal_id: item.meal_id,
+      quantity: item.quantity,
+      customer_notes: item.customer_notes ?? null,
+      today_special_id: item.today_special_id ?? null,
+      variant_id: item.variant_id ?? null,
+      // Only ids are sent. Names and prices are deliberately ignored by SQL.
+      extras: (item.extras ?? []).map((extra) => ({ id: extra.id })),
+    })),
+  };
+
+  const { data, error } = await supabase.rpc('place_order_atomic_v2', {
+    p_payload: payload,
+  });
+  handleSupabaseError(error);
+  if (!data) throw new Error('لم يتم إنشاء الطلب، يرجى المحاولة مرة أخرى');
+  return data as { orderId: UUID; orderNumber: string; isScheduled?: boolean };
 }
 
 

@@ -34,7 +34,6 @@ export default function AuthScreen() {
 
       // Force custom scheme to avoid exp:// redirection issues in Dev Client
       const redirectUrl = "sofra://auth-callback";
-      console.log("Redirect URL:", redirectUrl);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -44,11 +43,9 @@ export default function AuthScreen() {
       });
       if (error) throw error;
 
-      console.log("OAuth URL:", data?.url);
 
       if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-        console.log("WebBrowser Result:", result);
         if (result.type === 'success' && result.url) {
           // 1. Parse hash fragments (Implicit Grant Flow)
           const hashIndex = result.url.indexOf('#');

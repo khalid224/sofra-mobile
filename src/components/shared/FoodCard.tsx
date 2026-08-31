@@ -1,7 +1,9 @@
+import type { GestureResponderEvent } from 'react-native';
 import { Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Star, Clock, Plus, Heart } from 'lucide-react-native';
+import { Clock3, Heart, Plus, Star } from 'lucide-react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/theme/ThemeContext';
@@ -9,8 +11,9 @@ import { fontFamily, fontSize, radius, shadow, spacing } from '@/theme/tokens';
 import { formatEGP } from '@/utils';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { addFavorite, isFavorite, removeFavorite } from '@/features/favorites/api/favorites.api';
+import { addFavorite, fetchFavoriteMealIds, removeFavorite } from '@/features/favorites/api/favorites.api';
 import { QUERY_KEYS } from '@/constants';
+import { PressableScale } from '@/components/ui/PressableScale';
 import type { Meal } from '@/types';
 
 interface FoodCardProps {
@@ -25,17 +28,19 @@ export function FoodCard({ meal, size = 'md', horizontal = false }: FoodCardProp
   const { addItem, hasItem } = useCart();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const addScale = useSharedValue(1);
   const inCart = hasItem(meal.id);
 
-  // Favorite state query
-  const { data: isFav = false } = useQuery({
-    queryKey: [QUERY_KEYS.FAVORITES, meal.id, user?.id],
-    queryFn: () => (user ? isFavorite(user.id, meal.id) : Promise.resolve(false)),
+  const addAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: addScale.value }] }));
+
+  const { data: favoriteMealIds = [] } = useQuery({
+    queryKey: [QUERY_KEYS.FAVORITES, 'ids', user?.id],
+    queryFn: () => (user ? fetchFavoriteMealIds(user.id) : Promise.resolve([])),
     enabled: !!user,
     staleTime: 60_000,
   });
+  const isFav = favoriteMealIds.includes(meal.id);
 
-  // Favorite toggle mutation
   const favMutation = useMutation({
     mutationFn: async () => {
       if (!user) return;
@@ -43,171 +48,168 @@ export function FoodCard({ meal, size = 'md', horizontal = false }: FoodCardProp
       else await addFavorite(user.id, meal.id);
     },
     onMutate: async () => {
-      // Optimistic update
-      const key = [QUERY_KEYS.FAVORITES, meal.id, user?.id];
+      const key = [QUERY_KEYS.FAVORITES, 'ids', user?.id];
       await queryClient.cancelQueries({ queryKey: key });
-      queryClient.setQueryData(key, !isFav);
+      queryClient.setQueryData<string[]>(key, (current = []) =>
+        isFav ? current.filter((id) => id !== meal.id) : [...current, meal.id],
+      );
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FAVORITES] });
-    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FAVORITES] }),
   });
 
-  const handleHeartPress = async (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    if (!user) { router.push('/auth'); return; }
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const handleHeartPress = (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    if (!user) {
+      router.push('/auth');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     favMutation.mutate();
   };
 
-  const handleAdd = async (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (meal.variants && meal.variants.length > 0) {
-      router.push(`/food/${meal.id}`);
+  const handleAdd = (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+    addScale.value = withSequence(withSpring(1.22), withSpring(1));
+    if (meal.variants?.length) {
+      router.push({ pathname: '/food/quick/[id]', params: { id: meal.id } });
       return;
     }
     addItem({ meal_id: meal.id, name: meal.name, image_url: meal.image_url, price: meal.price, quantity: 1, notes: '' });
   };
 
-  const imageHeight = size === 'sm' ? 120 : size === 'md' ? 160 : 200;
-
   if (horizontal) {
     return (
-      <Pressable
-        onPress={() => router.push(`/food/${meal.id}`)}
-        style={{
+      <PressableScale
+        onPress={() => router.push({ pathname: '/food/quick/[id]', params: { id: meal.id } })}
+        style={{ width: 292, marginLeft: spacing.compact }}
+        contentStyle={{
           backgroundColor: colors.card,
-          borderRadius: radius.xl,
+          borderRadius: radius.lg,
           flexDirection: 'row-reverse',
           overflow: 'hidden',
           borderWidth: 1,
-          borderColor: colors.borderLight,
+          borderColor: colors.border,
           ...shadow.card,
         }}
       >
-        <Image source={{ uri: meal.image_url ?? '' }} style={{ width: 100, height: 100 }} contentFit="cover" />
-        <View style={{ flex: 1, padding: spacing.sm, justifyContent: 'space-between' }}>
-          <Text numberOfLines={2} style={{ fontFamily: fontFamily.bold, fontSize: fontSize.md, color: colors.foreground, textAlign: 'right' }}>
-            {meal.name}
-          </Text>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-            <Star size={12} color={colors.star} fill={colors.star} />
-            <Text style={{ fontFamily: fontFamily.medium, fontSize: fontSize.xs, color: colors.mutedForeground }}>
-              {meal.rating.toFixed(1)} ({meal.reviews_count})
+        <Image source={{ uri: meal.image_url ?? '' }} style={{ width: 112, minHeight: 132 }} contentFit="cover" transition={180} />
+        <View style={{ flex: 1, padding: spacing.compact, justifyContent: 'space-between', gap: 6 }}>
+          <View>
+            <Text numberOfLines={2} style={{ fontFamily: fontFamily.bold, fontSize: fontSize.md, color: colors.foreground, textAlign: 'right', lineHeight: 22 }}>
+              {meal.name}
             </Text>
+            {meal.description ? (
+              <Text numberOfLines={1} style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: 'right', marginTop: 2 }}>
+                {meal.description}
+              </Text>
+            ) : null}
           </View>
+          <MetaRow meal={meal} colors={colors} />
           <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize.lg, color: colors.primary }}>
-              {formatEGP(meal.price)}
-            </Text>
-            <Pressable
-              onPress={handleAdd}
-              style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: inCart ? colors.success : colors.primary, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Plus size={16} color="#fff" />
-            </Pressable>
+            <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.primary }}>{formatEGP(meal.price)}</Text>
+            <AddButton onPress={handleAdd} active={inCart} colors={colors} animatedStyle={addAnimatedStyle} />
           </View>
         </View>
-      </Pressable>
+      </PressableScale>
     );
   }
 
+  const imageHeight = size === 'sm' ? 124 : size === 'lg' ? 196 : 154;
+
   return (
-    <Pressable
-      onPress={() => router.push(`/food/${meal.id}`)}
-      style={{
+    <PressableScale
+      onPress={() => router.push({ pathname: '/food/quick/[id]', params: { id: meal.id } })}
+      disabled={!meal.is_available}
+      style={{ flex: 1, margin: 6 }}
+      contentStyle={{
         backgroundColor: colors.card,
-        borderRadius: radius.xl,
+        borderRadius: radius.lg,
         overflow: 'hidden',
-        flex: 1,
-        margin: 6,
         borderWidth: 1,
-        borderColor: colors.borderLight,
+        borderColor: colors.border,
         ...shadow.card,
       }}
     >
       <View style={{ position: 'relative' }}>
-        <Image
-          source={{ uri: meal.image_url ?? '' }}
-          style={{ width: '100%', height: imageHeight }}
-          contentFit="cover"
-          transition={300}
-          placeholder={{ thumbhash: '' }}
-        />
-        {!meal.is_available && (
-          <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontFamily: fontFamily.bold, fontSize: fontSize.sm }}>غير متاح</Text>
+        <Image source={{ uri: meal.image_url ?? '' }} style={{ width: '100%', height: imageHeight }} contentFit="cover" transition={180} />
+        {!meal.is_available ? (
+          <View style={{ position: 'absolute', inset: 0, backgroundColor: colors.overlayLight, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: fontSize.sm }}>غير متاح حاليًا</Text>
           </View>
-        )}
-
-        {/* Heart / Favorite button — top right */}
+        ) : null}
+        {meal.is_featured ? (
+          <View style={{ position: 'absolute', top: 10, right: 10, backgroundColor: colors.accent, borderRadius: radius.full, paddingHorizontal: 9, paddingVertical: 4 }}>
+            <Text style={{ color: colors.accentForeground, fontFamily: fontFamily.semibold, fontSize: 10 }}>اختيار مميز</Text>
+          </View>
+        ) : null}
         <Pressable
           onPress={handleHeartPress}
           hitSlop={8}
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            backgroundColor: 'rgba(0,0,0,0.35)',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          style={{ position: 'absolute', top: 9, left: 9, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.94)', alignItems: 'center', justifyContent: 'center', ...shadow.sm }}
         >
-          <Heart
-            size={17}
-            color={isFav ? '#FF4E6A' : '#fff'}
-            fill={isFav ? '#FF4E6A' : 'transparent'}
-          />
-        </Pressable>
-
-        {/* Add to Cart button — bottom left */}
-        <Pressable
-          onPress={handleAdd}
-          disabled={!meal.is_available}
-          style={{
-            position: 'absolute',
-            bottom: 10,
-            left: 10,
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: inCart ? colors.success : colors.primary,
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...shadow.md,
-          }}
-        >
-          <Plus size={20} color="#fff" />
+          <Heart size={17} color={isFav ? '#E11D48' : colors.foregroundSecondary} fill={isFav ? '#E11D48' : 'transparent'} />
         </Pressable>
       </View>
-      <View style={{ padding: spacing.sm, gap: 4 }}>
-        <Text numberOfLines={2} style={{ fontFamily: fontFamily.bold, fontSize: size === 'sm' ? fontSize.sm : fontSize.md, color: colors.foreground, textAlign: 'right', lineHeight: 20 }}>
+      <View style={{ padding: spacing.compact, gap: 7 }}>
+        <Text numberOfLines={1} style={{ fontFamily: fontFamily.bold, fontSize: size === 'sm' ? fontSize.sm : fontSize.md, color: colors.foreground, textAlign: 'right' }}>
           {meal.name}
         </Text>
-        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 2 }}>
-            <Star size={11} color={colors.star} fill={colors.star} />
-            <Text style={{ fontFamily: fontFamily.medium, fontSize: fontSize.xs, color: colors.mutedForeground }}>
-              {meal.rating.toFixed(1)}
-            </Text>
-          </View>
-          {meal.estimated_preparation_time && (
-            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 2 }}>
-              <Clock size={11} color={colors.mutedForeground} />
-              <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground }}>
-                {meal.estimated_preparation_time} د
-              </Text>
-            </View>
-          )}
+        {meal.description ? (
+          <Text numberOfLines={1} style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: 'right' }}>
+            {meal.description}
+          </Text>
+        ) : null}
+        <MetaRow meal={meal} colors={colors} />
+        <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+          <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.primary }}>{formatEGP(meal.price)}</Text>
+          <AddButton onPress={handleAdd} active={inCart} colors={colors} animatedStyle={addAnimatedStyle} />
         </View>
-        <Text style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize.lg, color: colors.primary, textAlign: 'right' }}>
-          {formatEGP(meal.price)}
-        </Text>
       </View>
-    </Pressable>
+    </PressableScale>
+  );
+}
+
+function MetaRow({ meal, colors }: { meal: Meal; colors: ReturnType<typeof useTheme>['colors'] }) {
+  return (
+    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.compact }}>
+      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3 }}>
+        <Star size={12} color={colors.star} fill={colors.star} />
+        <Text style={{ fontFamily: fontFamily.medium, fontSize: fontSize.xs, color: colors.foregroundSecondary }}>
+          {meal.rating.toFixed(1)}
+        </Text>
+        <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.foregroundTertiary }}>({meal.reviews_count})</Text>
+      </View>
+      {meal.estimated_preparation_time ? (
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3 }}>
+          <Clock3 size={12} color={colors.mutedForeground} />
+          <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground }}>{meal.estimated_preparation_time} د</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function AddButton({
+  onPress,
+  active,
+  colors,
+  animatedStyle,
+}: {
+  onPress: (event: GestureResponderEvent) => void;
+  active: boolean;
+  colors: ReturnType<typeof useTheme>['colors'];
+  animatedStyle: ReturnType<typeof useAnimatedStyle>;
+}) {
+  return (
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        onPress={onPress}
+        hitSlop={6}
+        style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: active ? colors.success : colors.primary, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Plus size={19} color="#FFFFFF" strokeWidth={2.5} />
+      </Pressable>
+    </Animated.View>
   );
 }

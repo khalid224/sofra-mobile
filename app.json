@@ -20,7 +20,8 @@
       "bundleIdentifier": "eg.sofra.app",
       "infoPlist": {
         "NSCameraUsageDescription": "لرفع صور الطلبات والشكاوى.",
-        "NSPhotoLibraryUsageDescription": "لاختيار صور من الألبوم."
+        "NSPhotoLibraryUsageDescription": "لاختيار صور من الألبوم.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

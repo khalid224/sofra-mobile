@@ -26,7 +26,7 @@ export default function AddressesScreen() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState<CreateAddressInput>({ title: '', city: '', area: '', street: '', building: '', floor: '', apartment: '', landmark: '' });
+  const [form, setForm] = useState<CreateAddressInput>({ title: '', area: '', street: '', building: '', floor: '', apartment: '', landmark: '' });
 
   const addresses = useQuery({ queryKey: [QUERY_KEY, user?.id], queryFn: () => fetchAddresses(user!.id), enabled: !!user });
 
@@ -35,7 +35,7 @@ export default function AddressesScreen() {
     onSuccess: () => {
       Toast.show({ type: 'success', text1: 'تمت إضافة العنوان' });
       setModalOpen(false);
-      setForm({ title: '', city: '', area: '', street: '', building: '', floor: '', apartment: '', landmark: '' });
+      setForm({ title: '', area: '', street: '', building: '', floor: '', apartment: '', landmark: '' });
       qc.invalidateQueries({ queryKey: [QUERY_KEY, user?.id] });
     },
     onError: (e: Error) => Toast.show({ type: 'error', text1: 'حدث خطأ', text2: e.message }),
@@ -52,7 +52,7 @@ export default function AddressesScreen() {
   });
 
   const handleCreate = () => {
-    if (!form.title || !form.city || !form.area || !form.street) {
+    if (!form.title.trim() || form.area.trim().length < 2 || form.street.trim().length < 5) {
       return Toast.show({ type: 'error', text1: 'يرجى تعبئة الحقول المطلوبة' });
     }
     createMut.mutate();
@@ -100,7 +100,7 @@ export default function AddressesScreen() {
                 </View>
               </View>
               <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground, textAlign: 'right' }}>
-                {addr.city} - {addr.area} - {addr.street}
+                {addr.area} - {addr.street}
                 {addr.building ? ` - مبنى ${addr.building}` : ''}
               </Text>
               {addr.is_default && (
@@ -123,7 +123,6 @@ export default function AddressesScreen() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
               {([
                 { key: 'title', label: 'اسم العنوان', placeholder: 'مثل: المنزل، العمل', required: true },
-                { key: 'city', label: 'المدينة', placeholder: 'القاهرة', required: true },
                 { key: 'area', label: 'الحي / المنطقة', placeholder: 'المعادي', required: true },
                 { key: 'street', label: 'الشارع', placeholder: 'شارع مثال', required: true },
                 { key: 'building', label: 'رقم المبنى', placeholder: '5', required: false },

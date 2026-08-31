@@ -1,7 +1,7 @@
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { fontFamily, fontSize, radius, spacing } from '@/theme/tokens';
@@ -11,10 +11,22 @@ export default function OrderSuccessScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { orderId, orderNumber } = useLocalSearchParams<{ orderId: string; orderNumber: string }>();
+  const navigatingRef = useRef(false);
+  const [navigating, setNavigating] = useState(false);
 
   useEffect(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
   }, []);
+
+  const navigateOnce = (destination: 'track' | 'home') => {
+    if (navigatingRef.current) return;
+    navigatingRef.current = true;
+    setNavigating(true);
+    requestAnimationFrame(() => {
+      if (destination === 'track') router.replace(`/order/${orderId}`);
+      else router.dismissTo('/(tabs)');
+    });
+  };
 
   return (
     <View
@@ -95,7 +107,8 @@ export default function OrderSuccessScreen() {
         <Button
           size="lg"
           fullWidth
-          onPress={() => router.replace(`/order/${orderId}`)}
+          disabled={navigating}
+          onPress={() => navigateOnce('track')}
         >
           تتبّع طلبي
         </Button>
@@ -103,7 +116,8 @@ export default function OrderSuccessScreen() {
           variant="outline"
           size="lg"
           fullWidth
-          onPress={() => router.replace('/(tabs)')}
+          disabled={navigating}
+          onPress={() => navigateOnce('home')}
         >
           العودة للرئيسية
         </Button>

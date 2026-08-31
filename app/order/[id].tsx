@@ -19,6 +19,7 @@ import { ORDER_STATUS_LABELS, ORDER_TIMELINE_STEPS } from '@/types';
 import { QUERY_KEYS, ORDER_POLL_INTERVAL } from '@/constants';
 import { RatingBanner } from '@/features/reviews/components/RatingBanner';
 import { supabase } from '@/lib/supabase';
+import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
 export default function OrderTrackScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,10 +27,14 @@ export default function OrderTrackScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  useRealtimeInvalidate('orders', [QUERY_KEYS.ORDER, id]);
+  useRealtimeInvalidate('order_items', ['order-items', id]);
+  useRealtimeInvalidate('order_timeline', [QUERY_KEYS.ORDER_TIMELINE, id]);
+
   const order = useQuery({ 
     queryKey: [QUERY_KEYS.ORDER, id], 
     queryFn: () => fetchOrderById(id!), 
-    refetchInterval: ORDER_POLL_INTERVAL, 
+    refetchInterval: ORDER_POLL_INTERVAL * 5,
     enabled: !!id 
   });
   
@@ -42,7 +47,7 @@ export default function OrderTrackScreen() {
   const timeline = useQuery({ 
     queryKey: [QUERY_KEYS.ORDER_TIMELINE, id], 
     queryFn: () => fetchOrderTimeline(id!), 
-    refetchInterval: ORDER_POLL_INTERVAL, 
+    refetchInterval: ORDER_POLL_INTERVAL * 5,
     enabled: !!id 
   });
   
@@ -128,6 +133,18 @@ export default function OrderTrackScreen() {
             </View>
           )}
 
+          {/* Delivery snapshot */}
+          {order.data.delivery_address && (
+            <View style={{ backgroundColor: colors.card, borderRadius: radius.xl, padding: spacing.md, borderWidth: 1, borderColor: colors.borderLight }}>
+              <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.md, color: colors.foreground, textAlign: 'right', marginBottom: 6 }}>
+                عنوان التوصيل
+              </Text>
+              <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground, textAlign: 'right' }}>
+                {order.data.delivery_area}{'\n'}{order.data.delivery_address}
+              </Text>
+            </View>
+          )}
+
           {/* Timeline */}
           {order.data.status !== 'cancelled' && (
             <View style={{ backgroundColor: colors.card, borderRadius: radius['2xl'], padding: spacing.md, borderWidth: 1, borderColor: colors.borderLight }}>
@@ -200,7 +217,7 @@ export default function OrderTrackScreen() {
 
           {/* Actions */}
           <View style={{ gap: spacing.sm }}>
-            <Button variant="primary" fullWidth onPress={() => openWhatsApp(settings.data?.whatsapp_number, `السلام عليكم، لدي استفسار بخصوص الطلب رقم #ORD-${order.data.order_number}`)}>
+            <Button variant="primary" fullWidth onPress={() => openWhatsApp(settings.data?.whatsapp_number, `السلام عليكم، لدي استفسار بخصوص الطلب رقم #${order.data.order_number}`)}>
               تواصل معنا عبر واتساب 💬
             </Button>
             {settings.data?.business_phone && (

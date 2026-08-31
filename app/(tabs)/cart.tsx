@@ -2,15 +2,19 @@ import { useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react-native';
+import { Minus, Plus, ReceiptText, ShoppingBag, Trash2 } from 'lucide-react-native';
+import { useQuery } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/theme/ThemeContext';
 import { fontFamily, fontSize, radius, shadow, spacing } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Primitives';
+import { Divider, Input } from '@/components/ui/Primitives';
 import { EmptyState } from '@/components/ui/States';
-import { Divider } from '@/components/ui/Primitives';
+import { PressableScale } from '@/components/ui/PressableScale';
 import { useCart, getCartItemKey } from '@/contexts/CartContext';
+import { supabase } from '@/lib/supabase';
+import { QUERY_KEYS } from '@/constants';
 import { formatEGP } from '@/utils';
 import type { CartItem } from '@/types';
 
@@ -19,17 +23,23 @@ export default function CartScreen() {
   const router = useRouter();
   const { items, totalItems, subtotal, removeItem, setQuantity, setNotes, clear } = useCart();
 
-  if (items.length === 0) {
+  const deliveryFeeQuery = useQuery({
+    queryKey: [QUERY_KEYS.RESTAURANT_STATUS, 'delivery_fee'],
+    queryFn: async () => {
+      const { data } = await supabase.from('app_settings').select('value').eq('key', 'delivery_fee').maybeSingle();
+      return Number(String(data?.value ?? 25).replace(/^"|"$/g, '')) || 25;
+    },
+    staleTime: 60_000,
+  });
+  const deliveryFee = deliveryFeeQuery.data ?? 25;
+  const discount = 0;
+  const total = subtotal + deliveryFee - discount;
+
+  if (!items.length) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <ScreenHeader title="سلة المشتريات" showBack showThemeToggle />
-
-        <EmptyState
-          emoji="🛒"
-          title="سلتك فاضية"
-          description="أضف أكلاتك المفضلة من المنيو وهنوصلهالك بسرعة"
-          action={{ label: 'تصفّح المنيو', onPress: () => router.push('/(tabs)/menu') }}
-        />
+        <ScreenHeader title="سلة المشتريات" showBack showThemeToggle={false} />
+        <EmptyState emoji="🛍️" title="سلتك لسه فاضية" description="اختار اللي نفسك فيه وهنوصله لحد بابك" action={{ label: 'تصفّح القائمة', onPress: () => router.navigate('/(tabs)/menu') }} />
       </View>
     );
   }
@@ -37,111 +47,123 @@ export default function CartScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
-        title={`سلة المشتريات (${totalItems})`}
+        title={`السلة · ${totalItems} ${totalItems === 1 ? 'صنف' : 'أصناف'}`}
         showBack
-        showThemeToggle
-
-        rightElement={
-          <Pressable onPress={clear} hitSlop={8}>
-            <Text style={{ fontFamily: fontFamily.semibold, fontSize: fontSize.sm, color: colors.destructive }}>مسح الكل</Text>
+        showThemeToggle={false}
+        rightElement={(
+          <Pressable onPress={clear} hitSlop={8} style={{ paddingVertical: 6 }}>
+            <Text style={{ fontFamily: fontFamily.semibold, fontSize: fontSize.xs, color: colors.destructive }}>إفراغ السلة</Text>
           </Pressable>
-        }
+        )}
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <FlatList
+          removeClippedSubviews={false}
           data={items}
-          keyExtractor={(item) => item.variant_id ? `${item.meal_id}-${item.variant_id}` : item.meal_id}
-          contentContainerStyle={{ padding: spacing.md, paddingBottom: 200 }}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
-          renderItem={({ item }) => <CartItemCard item={item} colors={colors} setQuantity={setQuantity} setNotes={setNotes} removeItem={removeItem} />}
+          keyExtractor={getCartItemKey}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: 286 }}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.compact }} />}
+          ListHeaderComponent={(
+            <View style={{ marginBottom: spacing.md, flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ width: 38, height: 38, borderRadius: 13, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center' }}>
+                <ShoppingBag size={19} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.foreground, textAlign: 'right' }}>راجع طلبك</Text>
+                <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: 'right' }}>تقدر تعدّل الكمية أو تضيف ملاحظة</Text>
+              </View>
+            </View>
+          )}
+          renderItem={({ item }) => (
+            <CartItemCard item={item} setQuantity={setQuantity} setNotes={setNotes} removeItem={removeItem} />
+          )}
         />
       </KeyboardAvoidingView>
 
-      {/* Sticky bottom summary */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.card, borderTopWidth: 1, borderColor: colors.border, padding: spacing.md, ...shadow.lg }}>
-        <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', marginBottom: 4 }}>
-          <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.md, color: colors.mutedForeground }}>المجموع الفرعي</Text>
-          <Text style={{ fontFamily: fontFamily.semibold, fontSize: fontSize.md, color: colors.foreground }}>{formatEGP(subtotal)}</Text>
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border, borderTopLeftRadius: radius['2xl'], borderTopRightRadius: radius['2xl'], padding: spacing.md, paddingBottom: spacing.lg, ...shadow.lg }}>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.compact }}>
+          <ReceiptText size={18} color={colors.primary} />
+          <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.md, color: colors.foreground }}>ملخص الحساب</Text>
         </View>
-        <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: 'right', marginBottom: spacing.sm }}>
-          سيتم إضافة رسوم التوصيل عند الطلب
-        </Text>
-        <Button size="lg" fullWidth onPress={() => router.push('/checkout')}>
-          متابعة الطلب — {formatEGP(subtotal)}
-        </Button>
+        <SummaryRow label="المجموع الفرعي" value={formatEGP(subtotal)} />
+        <SummaryRow label="رسوم التوصيل" value={formatEGP(deliveryFee)} />
+        {discount > 0 ? <SummaryRow label="الخصم" value={`- ${formatEGP(discount)}`} success /> : null}
+        <Divider />
+        <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginVertical: spacing.compact }}>
+          <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.foreground }}>الإجمالي</Text>
+          <Text style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize['2xl'], color: colors.primary }}>{formatEGP(total)}</Text>
+        </View>
+        <Button size="lg" fullWidth onPress={() => router.push('/checkout')}>متابعة تأكيد الطلب</Button>
       </View>
     </View>
   );
 }
 
-function CartItemCard({ item, colors, setQuantity, setNotes, removeItem }: {
+function SummaryRow({ label, value, success = false }: { label: string; value: string; success?: boolean }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', marginBottom: 7 }}>
+      <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground }}>{label}</Text>
+      <Text style={{ fontFamily: fontFamily.semibold, fontSize: fontSize.sm, color: success ? colors.success : colors.foreground }}>{value}</Text>
+    </View>
+  );
+}
+
+function CartItemCard({ item, setQuantity, setNotes, removeItem }: {
   item: CartItem;
-  colors: ReturnType<typeof useTheme>['colors'];
-  setQuantity: (id: string, q: number) => void;
-  setNotes: (id: string, n: string) => void;
+  setQuantity: (id: string, quantity: number) => void;
+  setNotes: (id: string, notes: string) => void;
   removeItem: (id: string) => void;
 }) {
-  const [notesExpanded, setNotesExpanded] = useState(false);
+  const { colors } = useTheme();
+  const [notesExpanded, setNotesExpanded] = useState(!!item.notes);
+  const itemKey = getCartItemKey(item);
+
+  const updateQuantity = (quantity: number) => {
+    Haptics.selectionAsync().catch(() => undefined);
+    if (quantity < 1) removeItem(itemKey);
+    else setQuantity(itemKey, quantity);
+  };
 
   return (
-    <View style={{ backgroundColor: colors.card, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderLight, overflow: 'hidden', ...shadow.card }}>
-      <View style={{ flexDirection: 'row-reverse', gap: spacing.sm, padding: spacing.sm }}>
-        <Image source={{ uri: item.image_url ?? '' }} style={{ width: 80, height: 80, borderRadius: radius.lg }} contentFit="cover" />
-        <View style={{ flex: 1, gap: 6 }}>
-          <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
-            <Text numberOfLines={2} style={{ fontFamily: fontFamily.bold, fontSize: fontSize.md, color: colors.foreground, flex: 1, textAlign: 'right' }}>
-              {item.name}
-            </Text>
-            <Pressable onPress={() => removeItem(getCartItemKey(item))} hitSlop={8} style={{ paddingLeft: 8 }}>
-              <Trash2 size={18} color={colors.destructive} />
+    <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.compact, ...shadow.card }}>
+      <View style={{ flexDirection: 'row-reverse', gap: spacing.compact }}>
+        <Image source={{ uri: item.image_url ?? '' }} style={{ width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.muted }} contentFit="cover" transition={160} />
+        <View style={{ flex: 1, justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'flex-start', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <Text numberOfLines={2} style={{ fontFamily: fontFamily.bold, fontSize: fontSize.md, lineHeight: 22, color: colors.foreground, textAlign: 'right' }}>{item.name}</Text>
+              {item.variant_name ? <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: 'right' }}>{item.variant_name}</Text> : null}
+            </View>
+            <Pressable onPress={() => removeItem(itemKey)} hitSlop={8} style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: colors.destructiveSubtle, alignItems: 'center', justifyContent: 'center' }}>
+              <Trash2 size={15} color={colors.destructive} />
             </Pressable>
           </View>
-
-          <Text style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize.lg, color: colors.primary, textAlign: 'right' }}>
-            {formatEGP(item.price * item.quantity)}
-          </Text>
-
-          {/* Quantity stepper */}
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
-            <Pressable
-              onPress={() => item.quantity > 1 ? setQuantity(getCartItemKey(item), item.quantity - 1) : removeItem(getCartItemKey(item))}
-              style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Minus size={14} color={colors.foreground} />
-            </Pressable>
-            <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.foreground, minWidth: 24, textAlign: 'center' }}>
-              {item.quantity}
-            </Text>
-            <Pressable
-              onPress={() => setQuantity(getCartItemKey(item), item.quantity + 1)}
-              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Plus size={14} color="#fff" />
-            </Pressable>
-
-            <Pressable onPress={() => setNotesExpanded((p) => !p)} style={{ marginRight: 'auto' }}>
-              <Text style={{ fontFamily: fontFamily.medium, fontSize: fontSize.xs, color: colors.primary }}>
-                {item.notes ? 'تعديل الملاحظة' : '+ ملاحظة'}
-              </Text>
-            </Pressable>
+          <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.primary }}>{formatEGP(item.price * item.quantity)}</Text>
+            <View style={{ height: 34, borderRadius: 12, backgroundColor: colors.muted, flexDirection: 'row-reverse', alignItems: 'center', overflow: 'hidden' }}>
+              <PressableScale onPress={() => updateQuantity(item.quantity + 1)} style={{ width: 34, height: 34 }} contentStyle={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary }}>
+                <Plus size={15} color="#FFFFFF" />
+              </PressableScale>
+              <Text style={{ minWidth: 34, textAlign: 'center', color: colors.foreground, fontFamily: fontFamily.bold, fontSize: fontSize.sm }}>{item.quantity}</Text>
+              <Pressable onPress={() => updateQuantity(item.quantity - 1)} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+                <Minus size={15} color={colors.foregroundSecondary} />
+              </Pressable>
+            </View>
           </View>
         </View>
       </View>
 
-      {notesExpanded && (
-        <View style={{ paddingHorizontal: spacing.sm, paddingBottom: spacing.sm }}>
-          <Divider />
-          <View style={{ marginTop: spacing.sm }}>
-            <Input
-              value={item.notes}
-              onChangeText={(v) => setNotes(getCartItemKey(item), v)}
-              placeholder="ملاحظات للطاهي (مثل: بدون بصل، ملح خفيف...)"
-              style={{ fontSize: fontSize.sm }}
-            />
-          </View>
+      <Pressable onPress={() => setNotesExpanded((current) => !current)} style={{ alignSelf: 'flex-end', paddingTop: spacing.sm }}>
+        <Text style={{ fontFamily: fontFamily.semibold, fontSize: fontSize.xs, color: colors.primary }}>{item.notes ? 'تعديل الملاحظة' : '+ إضافة ملاحظة للمطعم'}</Text>
+      </Pressable>
+      {notesExpanded ? (
+        <View style={{ marginTop: spacing.sm }}>
+          <Input value={item.notes} onChangeText={(value) => setNotes(itemKey, value)} placeholder="مثال: بدون بصل، ملح خفيف..." style={{ fontSize: fontSize.sm }} />
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

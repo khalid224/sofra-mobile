@@ -64,7 +64,8 @@ export type NotificationType =
   | 'order_cancelled'
   | 'complaint_update'
   | 'chat_reply'
-  | 'promotion';
+  | 'promotion'
+  | 'today_special';
 
 // ─── Profile ─────────────────────────────────────────────────
 export type UserRole = 'customer' | 'admin';
@@ -219,7 +220,15 @@ export interface Order {
   payment_method: PaymentMethod;
   payment_status: PaymentStatus;
   notes: string | null;
+  delivery_name?: string | null;
+  delivery_phone?: string | null;
+  delivery_email?: string | null;
+  delivery_address?: string | null;
+  delivery_city?: string | null;
+  delivery_area?: string | null;
   estimated_delivery: ISODateString | null;
+  is_scheduled?: boolean;
+  scheduled_for?: ISODateString | null;
   created_at: ISODateString;
   updated_at: ISODateString;
   customer?: Profile;
@@ -230,7 +239,7 @@ export interface Order {
 export interface OrderItem {
   id: UUID;
   order_id: UUID;
-  meal_id: UUID;
+  meal_id: UUID | null;
   quantity: number;
   unit_price: number;
   total_price: number;
@@ -439,4 +448,3 @@ export interface CookPerformance {
 export interface ProfileWithPreferredCook extends Profile {
   preferred_cook_id: UUID | null;
 }
-

@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { Clock, Minus, Plus, ShoppingCart, Star, AlertTriangle, Zap, Heart } from 'lucide-react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, Clock, Minus, Plus, ShoppingCart, Star, AlertTriangle, Zap, Heart } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/theme/ThemeContext';
 import { fontFamily, fontSize, radius, shadow, spacing } from '@/theme/tokens';
-import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Primitives';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -22,10 +22,9 @@ import { fetchMealReviews as fetchReviews } from '@/features/reviews/api/reviews
 import { addFavorite, isFavorite, removeFavorite } from '@/features/favorites/api/favorites.api';
 import { useCart, getCartItemKey } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatEGP } from '@/utils';
 import { QUERY_KEYS, MAX_CART_QUANTITY } from '@/constants';
-import type { Meal, AvailableToday, MealVariant, MealVariantExtra } from '@/types';
+import type { MealVariant, MealVariantExtra } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 export default function FoodDetailScreen() {
@@ -36,7 +35,6 @@ export default function FoodDetailScreen() {
   const { addItem, getItem } = useCart();
   
   const [quantity, setQuantity] = useState(1);
-  const [notes, setNotes] = useState('');
   const [activeImage, setActiveImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<MealVariant | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<MealVariantExtra[]>([]);
@@ -143,7 +141,6 @@ export default function FoodDetailScreen() {
   const basePrice = isSpecial ? todaySpecial.data.price : (selectedVariant?.price ?? meal.data?.price ?? 0);
   const extrasTotal = selectedExtras.reduce((sum, e) => sum + e.price, 0);
   const displayPrice = basePrice + extrasTotal;
-  const displayPrepTime = selectedVariant?.estimated_preparation_time ?? meal.data?.estimated_preparation_time;
 
   // Use variant image if available, else snapshot/meal
   const snapshotImage = isSpecial ? todaySpecial.data.image_url : (selectedVariant?.image_url ?? null);
@@ -207,7 +204,7 @@ export default function FoodDetailScreen() {
       image_url: images[0] ?? null, 
       price: displayPrice, 
       quantity, 
-      notes,
+      notes: '',
       is_today_special: isSpecial,
       today_special_id: todaySpecialId,
       variant_id: selectedVariant?.id,
@@ -231,8 +228,8 @@ export default function FoodDetailScreen() {
         <Pressable onPress={handleHeartPress} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', ...shadow.md }}>
           <Heart size={20} color={isFav ? '#FF4E6A' : '#000'} fill={isFav ? '#FF4E6A' : 'transparent'} />
         </Pressable>
-        <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', ...shadow.md }}>
-          <Text style={{ fontSize: 18, color: '#000' }}>←</Text>
+        <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.94)', alignItems: 'center', justifyContent: 'center', ...shadow.md }}>
+          <ArrowRight size={20} color="#1E293B" />
         </Pressable>
       </View>
 
@@ -244,6 +241,7 @@ export default function FoodDetailScreen() {
           ) : (
             <Image source={{ uri: images[activeImage] ?? '' }} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={200} />
           )}
+          <LinearGradient colors={['transparent', 'rgba(15,23,42,0.30)']} style={{ position: 'absolute', inset: 0 }} pointerEvents="none" />
         </View>
 
         {/* Gallery Dots */}

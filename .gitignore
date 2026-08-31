@@ -2,6 +2,18 @@ node_modules/
 .expo/
 dist/
 web-build/
+
+# Native build output is machine-specific. In particular, React Native's
+# autolinking JSON contains absolute Windows paths and must never be uploaded
+# to Linux-based EAS workers.
+android/.gradle/
+android/build/
+android/app/build/
+android/.cxx/
+android/app/.cxx/
+android/local.properties
+*.iml
+
 *.jks
 *.p8
 *.p12
@@ -10,6 +22,9 @@ web-build/
 *.orig.*
 .env
 .env.local
+*firebase-admin*.json
+*service-account*.json
+supabase/.temp/
 GoogleService-Info.plist
 .DS_Store
 npm-debug.*

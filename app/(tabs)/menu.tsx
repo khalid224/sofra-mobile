@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
 import { FlatList, Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { useLocalSearchParams } from 'expo-router';
-import { SlidersHorizontal, X, Check } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SlidersHorizontal, X, Check, Clock3, Star, Truck } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/theme/ThemeContext';
-import { fontFamily, fontSize, radius, spacing } from '@/theme/tokens';
+import { fontFamily, fontSize, gradients, radius, shadow, spacing } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { FoodCard } from '@/components/shared/FoodCard';
 import { Chip } from '@/components/ui/Primitives';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/States';
-import { Button } from '@/components/ui/Button';
 import { fetchCategories, fetchMeals, fetchSubcategories, type MealSortOption } from '@/features/menu/api/meals.api';
 import { QUERY_KEYS } from '@/constants';
+import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
 const SORT_OPTIONS: { value: MealSortOption; label: string }[] = [
   { value: 'newest', label: 'الأحدث' },
@@ -25,12 +26,17 @@ const SORT_OPTIONS: { value: MealSortOption; label: string }[] = [
 
 export default function MenuScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const params = useLocalSearchParams<{ categoryId?: string }>();
   const [categoryId, setCategoryId] = useState<string | undefined>(params.categoryId);
   const [subcategoryId, setSubcategoryId] = useState<string | undefined>();
   const [sort, setSort] = useState<MealSortOption>('newest');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  useRealtimeInvalidate('categories', [QUERY_KEYS.CATEGORIES]);
+  useRealtimeInvalidate('subcategories', ['subcategories']);
+  useRealtimeInvalidate('meals', [QUERY_KEYS.MEALS]);
 
   useEffect(() => { if (params.categoryId) setCategoryId(params.categoryId); }, [params.categoryId]);
 
@@ -49,7 +55,25 @@ export default function MenuScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScreenHeader title="المنيو" showBack={false} showThemeToggle />
+      <ScreenHeader title="قائمة sofra" showBack={false} showSearch showThemeToggle={false} onSearchPress={() => router.push('/search')} />
+
+      <LinearGradient colors={gradients.primary} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={{ margin: spacing.md, marginBottom: spacing.sm, padding: spacing.md, borderRadius: radius.lg, overflow: 'hidden', ...shadow.sm }}>
+        <View style={{ position: 'absolute', left: -20, top: -35, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: fontSize.xl, textAlign: 'right' }}>Sofra Kitchen</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.78)', fontFamily: fontFamily.regular, fontSize: fontSize.xs, textAlign: 'right', marginTop: 2 }}>أكل طازة بيتحضّر مخصوص ليك</Text>
+          </View>
+          <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 24 }}>🍲</Text>
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.md, marginTop: spacing.compact }}>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}><Star size={13} color="#FDE68A" fill="#FDE68A" /><Text style={{ color: '#FFFFFF', fontFamily: fontFamily.semibold, fontSize: fontSize.xs }}>4.8</Text></View>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}><Clock3 size={13} color="rgba(255,255,255,0.82)" /><Text style={{ color: 'rgba(255,255,255,0.82)', fontFamily: fontFamily.regular, fontSize: fontSize.xs }}>30-45 دقيقة</Text></View>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}><Truck size={13} color="rgba(255,255,255,0.82)" /><Text style={{ color: 'rgba(255,255,255,0.82)', fontFamily: fontFamily.regular, fontSize: fontSize.xs }}>توصيل آمن</Text></View>
+        </View>
+      </LinearGradient>
 
       {/* Category chips */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm }}>
@@ -70,7 +94,7 @@ export default function MenuScreen() {
       )}
 
       {/* Filter bar */}
-      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingBottom: spacing.sm }}>
+      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
         <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground }}>
           {meals.data?.count ?? 0} نتيجة
         </Text>
@@ -87,6 +111,7 @@ export default function MenuScreen() {
         <ErrorState onRetry={() => meals.refetch()} />
       ) : meals.isLoading ? (
         <FlatList
+          removeClippedSubviews={false}
           data={Array.from({ length: 6 })}
           keyExtractor={(_, i) => String(i)}
           numColumns={2}
@@ -98,6 +123,7 @@ export default function MenuScreen() {
         <EmptyState emoji="🍽️" title="لا توجد أصناف" description="جرّب تغيير الفلتر أو القسم" />
       ) : (
         <FlatList
+          removeClippedSubviews={false}
           data={meals.data?.data}
           keyExtractor={(m) => m.id}
           numColumns={2}

@@ -25,8 +25,8 @@ serve(async (req) => {
     if (!authHeader) throw new Error('غير مصرح');
     const { data: { user } } = await admin.auth.getUser(authHeader.replace('Bearer ', ''));
     if (!user) throw new Error('غير مصرح');
-    const { data: prof } = await admin.from('profiles').select('role').eq('id', user.id).single();
-    if (prof?.role !== 'admin') throw new Error('للمديرين فقط');
+    const { data: prof } = await admin.from('profiles').select('role, status').eq('id', user.id).single();
+    if (prof?.role !== 'admin' || prof.status !== 'active') throw new Error('للمديرين النشطين فقط');
 
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();

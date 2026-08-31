@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, Text, type PressableProps, type StyleProp
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/theme/ThemeContext';
-import { fontFamily, fontSize, radius, spacing } from '@/theme/tokens';
+import { fontFamily, fontSize, radius } from '@/theme/tokens';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl' | 'icon';

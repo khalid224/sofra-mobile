@@ -38,7 +38,6 @@ export async function fetchAddresses(customerId: UUID): Promise<CustomerAddress[
 
 export interface CreateAddressInput {
   title: string;
-  city: string;
   area: string;
   street: string;
   building?: string;
@@ -54,7 +53,19 @@ export async function createAddress(customerId: UUID, input: CreateAddressInput)
   }
   const { data, error } = await supabase
     .from('customer_addresses')
-    .insert({ customer_id: customerId, ...input })
+    .insert({
+      customer_id: customerId,
+      ...input,
+      title: input.title.trim(),
+      area: input.area.trim(),
+      street: input.street.trim(),
+      building: input.building?.trim() || null,
+      floor: input.floor?.trim() || null,
+      apartment: input.apartment?.trim() || null,
+      landmark: input.landmark?.trim() || null,
+      // Compatibility with the legacy non-null column; hidden from the UI.
+      city: input.area.trim(),
+    })
     .select(ADDRESS_FIELDS)
     .single();
   handleSupabaseError(error);

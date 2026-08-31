@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const role = profile?.role ?? null;
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' && profile?.status === 'active';
 
   return (
     <AuthContext.Provider

@@ -17,23 +17,29 @@ import {
 } from '../utils';
 import type { OrderStatus } from '../types';
 
+function normalizeArabicDigits(value: string): string {
+  const arabic = '٠١٢٣٤٥٦٧٨٩';
+  return value.replace(/[٠-٩]/g, (digit) => String(arabic.indexOf(digit)));
+}
+
 // ─── formatEGP ───────────────────────────────────────────────
 describe('formatEGP', () => {
   it('formats whole number in EGP', () => {
     const result = formatEGP(100);
-    expect(result).toContain('100');
+    expect(normalizeArabicDigits(result)).toContain('100');
     expect(result).toContain('ج'); // EGP symbol in Arabic locale
   });
 
   it('formats zero', () => {
     const result = formatEGP(0);
-    expect(result).toContain('0');
+    expect(normalizeArabicDigits(result)).toContain('0');
   });
 
   it('formats large numbers', () => {
     const result = formatEGP(1500);
-    expect(result).toContain('1');
-    expect(result).toContain('500');
+    const normalized = normalizeArabicDigits(result);
+    expect(normalized).toContain('1');
+    expect(normalized).toContain('500');
   });
 
   it('rounds decimals to 0 fraction digits', () => {

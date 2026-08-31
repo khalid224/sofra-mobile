@@ -30,6 +30,7 @@ const TYPE_EMOJI: Record<NotificationType, string> = {
   complaint_update: '📋',
   chat_reply: '💬',
   promotion: '🎁',
+  today_special: '⚡',
 };
 
 export default function NotificationsScreen() {
@@ -67,13 +68,19 @@ export default function NotificationsScreen() {
       markOneMut.mutate(item.id);
     }
     try {
-      if (item.data?.order_id) {
-        router.push(`/order/${item.data.order_id}` as never);
-      } else if (item.data?.screen) {
-        router.push(item.data.screen as never);
+      const payload = item.data && typeof item.data === 'object' ? (item.data as Record<string, string>) : null;
+      if (payload?.order_id) {
+        router.push(`/order/${payload.order_id}` as never);
+      } else if (payload?.today_special_id) {
+        router.push({
+          pathname: '/food/[id]',
+          params: { id: payload.today_special_id, todaySpecialId: payload.today_special_id },
+        } as never);
+      } else if (payload?.screen) {
+        router.push(payload.screen as never);
       }
-    } catch {
-      // Invalid deep-link — don't crash the screen
+    } catch (e) {
+      console.warn('[NotificationsScreen] Deep-link error:', e);
     }
   };
 
@@ -124,6 +131,7 @@ export default function NotificationsScreen() {
         />
       ) : (
         <FlatList
+          removeClippedSubviews={false}
           data={notifications.data}
           keyExtractor={(item, index) => item.id || `notif-${index}`}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}

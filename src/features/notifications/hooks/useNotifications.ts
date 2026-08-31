@@ -1,10 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { registerForPushNotificationsAsync } from '@/lib/notifications';
+import { savePushToken } from '@/features/notifications/services/savePushToken';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -15,85 +14,79 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function registerForPushNotifications(): Promise<string | null> {
-  if (!Device.isDevice) return null;
+let registeredPushToken: string | null = null;
+let lastHandledNotificationId: string | null = null;
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let finalStatus = existing;
-  if (existing !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  if (finalStatus !== 'granted') return null;
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'sofra',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#CA4B20',
-    });
-  }
-
-  const projectId =
-    (Constants.expoConfig as any)?.extra?.eas?.projectId as string | undefined;
-  const tokenData = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
-  const token = tokenData.data;
-  console.log('[Notifications] Expo Push Token:', token);
-  return token;
+function logNotificationError(scope: string, error: unknown): void {
+  const serialized = error instanceof Error
+    ? { name: error.name, message: error.message, stack: error.stack }
+    : error;
+  console.warn(`[Notifications] ${scope}:`, JSON.stringify(serialized));
 }
 
-async function saveToken(userId: string, token: string): Promise<void> {
-  await supabase.from('device_tokens').upsert(
-    {
-      user_id: userId,
-      token,
-      platform: Platform.OS,
-      last_used: new Date().toISOString(),
-    },
-    { onConflict: 'token' },
-  );
+function handleNotificationResponse(response: Notifications.NotificationResponse): void {
+  const notificationId = response.notification.request.identifier;
+  if (lastHandledNotificationId === notificationId) return;
+  lastHandledNotificationId = notificationId;
+
+  const data = response.notification.request.content.data as Record<string, string> | undefined;
+  void import('expo-router').then(({ router }) => {
+    if (data?.order_id) {
+      router.push(`/order/${data.order_id}` as never);
+    } else if (data?.thread_id) {
+      router.push('/chat' as never);
+    } else if (data?.screen) {
+      router.push(data.screen as never);
+    }
+  }).catch((error: unknown) => logNotificationError('deep-link failed', error));
 }
 
-export async function removeToken(token: string): Promise<void> {
-  await supabase.from('device_tokens').delete().eq('token', token);
+export async function removeToken(token = registeredPushToken): Promise<void> {
+  if (!token) return;
+  const { error } = await supabase.from('device_tokens').delete().eq('token', token);
+  if (error) throw error;
+  if (registeredPushToken === token) registeredPushToken = null;
 }
 
 export function useNotifications() {
   const { user } = useAuth();
-  const tokenRef = useRef<string | null>(null);
+  const userId = user?.id;
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     let cancelled = false;
 
-    registerForPushNotifications().then((token) => {
-      if (cancelled || !token) return;
-      tokenRef.current = token;
-      saveToken(user.id, token);
+    void registerForPushNotificationsAsync()
+      .then(async (token) => {
+        if (cancelled) return;
+        registeredPushToken = token;
+        await savePushToken(userId, token);
+      })
+      .catch((error: unknown) => logNotificationError('registration failed', error));
+
+    // Expo push tokens can roll while the app is installed. Persist the new
+    // value immediately rather than waiting for the next login/app launch.
+    const tokenSub = Notifications.addPushTokenListener((token) => {
+      registeredPushToken = token.data;
+      void savePushToken(userId, token.data)
+        .catch((error: unknown) => logNotificationError('token refresh failed', error));
     });
 
-    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
-      // Deep link handling: navigate to the right screen based on notification payload
-      const data = response.notification.request.content.data as Record<string, string> | undefined;
-      if (data?.order_id) {
-        import('expo-router').then(({ router }) => {
-          router.push(`/order/${data.order_id}` as never);
-        }).catch(() => undefined);
-      } else if (data?.thread_id) {
-        import('expo-router').then(({ router }) => {
-          router.push('/chat' as never);
-        }).catch(() => undefined);
-      } else if (data?.screen) {
-        import('expo-router').then(({ router }) => {
-          router.push(data.screen as never);
-        }).catch(() => undefined);
-      }
-    });
+    const responseSub = Notifications.addNotificationResponseReceivedListener(
+      handleNotificationResponse,
+    );
+
+    // Covers tapping a notification that cold-started a fully terminated app.
+    void Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (!cancelled && response) handleNotificationResponse(response);
+      })
+      .catch((error: unknown) => logNotificationError('cold-start response failed', error));
 
     return () => {
       cancelled = true;
+      tokenSub.remove();
       responseSub.remove();
     };
-  }, [user?.id]);
+  }, [userId]);
 }

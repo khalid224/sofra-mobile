@@ -8,17 +8,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { EmptyState } from '@/components/ui/States';
 
 const WEBSITE_URL = process.env.EXPO_PUBLIC_WEBSITE_URL ?? '';
+const ADMIN_URL = process.env.EXPO_PUBLIC_ADMIN_URL
+  ?? (WEBSITE_URL ? WEBSITE_URL.replace(/\/$/, '') : '');
 
 /**
- * لوحة الإدارة: تُحمَّل كـ WebView من نفس موقع sofra المنشور.
- * مع حقن بيانات الجلسة حتى يبقى المدير مسجلاً دخوله تلقائياً.
+ * لوحة الإدارة: تُحمَّل من رابط لوحة Next المنشورة.
+ * لا يتم حقن رموز جلسة الموبايل داخل صفحة الويب؛ لوحة الإدارة تستخدم
+ * جلسة cookies مستقلة حتى لا تتسرب الرموز إلى نطاق خاطئ.
  *
  * فى Phase 2 يمكن استبدالها بشاشات Native كاملة لكل قسم إداري
  * (الطلبات، مركز التوزيع، الطباخين، CRM، التحليلات...)
  */
 export default function AdminScreen() {
   const { colors } = useTheme();
-  const { session, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const webviewRef = useRef<WebView>(null);
 
   if (!isAdmin) {
@@ -30,36 +33,25 @@ export default function AdminScreen() {
     );
   }
 
-  if (!WEBSITE_URL) {
+  if (!ADMIN_URL) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ScreenHeader showBack title="لوحة الإدارة" showThemeToggle={false} />
         <View style={{ flex: 1, padding: spacing.xl, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.md, color: colors.mutedForeground, textAlign: 'center' }}>
-            حدد EXPO_PUBLIC_WEBSITE_URL في ملف .env
+            حدد EXPO_PUBLIC_ADMIN_URL في ملف .env
           </Text>
         </View>
       </View>
     );
   }
 
-  // Inject Supabase session so the web admin dashboard auto-authenticates
-  const injectedJS = session
-    ? `(function() {
-        try {
-          window.__SOFRA_RN_SESSION__ = ${JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token })};
-        } catch(e) {}
-        true;
-      })();`
-    : '';
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader showBack title="لوحة الإدارة" showThemeToggle={false} />
       <WebView
         ref={webviewRef}
-        source={{ uri: `${WEBSITE_URL}/admin` }}
-        injectedJavaScriptBeforeContentLoaded={injectedJS}
+        source={{ uri: ADMIN_URL }}
         startInLoadingState
         renderLoading={() => (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>

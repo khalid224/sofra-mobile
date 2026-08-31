@@ -15,10 +15,27 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      serviceRoleKey,
     );
+
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '') ?? '';
+    if (!token) throw new Error('غير مصرح');
+    if (token !== serviceRoleKey) {
+      const { data: { user }, error: authError } = await admin.auth.getUser(token);
+      if (authError || !user) throw new Error('غير مصرح');
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('role, status')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (profile?.role !== 'admin' || profile.status !== 'active') {
+        throw new Error('للمديرين فقط');
+      }
+    }
 
     const now = new Date();
     const yesterday = new Date(now);

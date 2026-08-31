@@ -48,6 +48,7 @@ export default function FavoritesScreen() {
 
       {favorites.isLoading ? (
         <FlatList
+          removeClippedSubviews={false}
           data={Array.from({ length: 4 })}
           keyExtractor={(_, i) => String(i)}
           numColumns={2}
@@ -59,10 +60,11 @@ export default function FavoritesScreen() {
           emoji="❤️"
           title="لا توجد أصناف في المفضلة"
           description="اضغط على ❤️ على أي صنف لإضافته للمفضلة"
-          action={{ label: 'تصفّح المنيو', onPress: () => router.push('/(tabs)/menu') }}
+          action={{ label: 'تصفّح المنيو', onPress: () => router.navigate('/(tabs)/menu') }}
         />
       ) : (
         <FlatList
+          removeClippedSubviews={false}
           data={favorites.data}
           keyExtractor={(m) => m.id}
           numColumns={2}

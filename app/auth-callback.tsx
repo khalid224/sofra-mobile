@@ -40,7 +40,6 @@ export default function AuthCallbackScreen() {
       try {
         // Handle PKCE / Authorization Code flow (code in query params)
         if (params.code) {
-          console.log('[AuthCallback] Exchanging code for session...');
           const { error } = await supabase.auth.exchangeCodeForSession(params.code);
           if (error) throw error;
           Toast.show({ type: 'success', text1: 'مرحباً بك!', text2: 'تم تسجيل الدخول بنجاح' });
@@ -50,7 +49,6 @@ export default function AuthCallbackScreen() {
 
         // Handle Implicit flow (tokens in hash — Expo Router parses them as params)
         if (params.access_token && params.refresh_token) {
-          console.log('[AuthCallback] Setting session from tokens...');
           const { error } = await supabase.auth.setSession({
             access_token: params.access_token,
             refresh_token: params.refresh_token,

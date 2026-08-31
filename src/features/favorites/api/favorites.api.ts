@@ -19,6 +19,20 @@ export async function fetchFavorites(userId: UUID): Promise<Meal[]> {
   return (data ?? []).map((r: { meal_id: string; meals: unknown }) => r.meals as Meal).filter(Boolean);
 }
 
+/**
+ * A lightweight, shared favorite lookup for meal cards.
+ * Every card subscribes to the same React Query key, so a menu renders with
+ * one database request instead of one request per card.
+ */
+export async function fetchFavoriteMealIds(userId: UUID): Promise<UUID[]> {
+  const { data, error } = await supabase
+    .from('favorites')
+    .select('meal_id')
+    .eq('customer_id', userId);
+  handleSupabaseError(error);
+  return (data ?? []).map((row) => row.meal_id as UUID);
+}
+
 export async function addFavorite(userId: UUID, mealId: UUID): Promise<void> {
   const { error } = await supabase
     .from('favorites')

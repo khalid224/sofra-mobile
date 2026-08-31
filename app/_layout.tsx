@@ -17,7 +17,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider, useTheme } from "@/theme/ThemeContext";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { queryClient } from "@/lib/queryClient";
 import { useNotifications } from "@/features/notifications/hooks/useNotifications";
@@ -25,6 +25,7 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useAppStore } from "@/store";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
+import { MiniCart } from "@/components/shared/MiniCart";
 import * as WebBrowser from 'expo-web-browser';
 
 // Required at the root level so any lingering auth sessions are completed
@@ -71,10 +72,14 @@ function AppContent() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style={isDark ? "light" : "dark"} />
       <OfflineBanner />
-      <Stack screenOptions={{ headerShown: false, animation: "slide_from_left" }}>
+      <Stack screenOptions={{ headerShown: false, animation: "fade", freezeOnBlur: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding/index" options={{ animation: "fade" }} />
         <Stack.Screen name="food/[id]" options={{ animation: "slide_from_right" }} />
+        <Stack.Screen
+          name="food/quick/[id]"
+          options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }}
+        />
         <Stack.Screen name="order/[id]" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="order/success" options={{ animation: "fade", gestureEnabled: false }} />
         <Stack.Screen name="checkout/index" options={{ animation: "slide_from_right" }} />
@@ -92,6 +97,7 @@ function AppContent() {
         <Stack.Screen name="contact" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="auth-callback" options={{ headerShown: false, animation: "fade" }} />
       </Stack>
+      <MiniCart />
       <Toast />
     </View>
   );

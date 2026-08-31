@@ -1,19 +1,22 @@
 import { supabase } from "@/lib/supabase";
+import { Platform } from "react-native";
 
 export async function savePushToken(
   userId: string,
-  token: string
+  token: string,
+  platform = Platform.OS,
 ) {
   const { error } = await supabase
-    .from("push_tokens")
+    .from("device_tokens")
     .upsert(
       {
         user_id: userId,
         token,
-        platform: "android",
+        platform,
+        last_used: new Date().toISOString(),
       },
       {
-        onConflict: "user_id",
+        onConflict: "token",
       }
     );
 

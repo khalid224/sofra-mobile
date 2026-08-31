@@ -70,6 +70,7 @@ export default function OnboardingScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <FlatList
+        removeClippedSubviews={false}
         ref={listRef}
         data={PAGES}
         keyExtractor={(_, i) => String(i)}

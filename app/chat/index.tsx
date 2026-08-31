@@ -69,6 +69,7 @@ export default function ChatScreen() {
       <ScreenHeader showBack title="تواصل مع sofra" showThemeToggle={false} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <FlatList
+          removeClippedSubviews={false}
           ref={flatRef}
           data={messages.data ?? []}
           keyExtractor={(m, i) => m.id || `msg-${i}`}

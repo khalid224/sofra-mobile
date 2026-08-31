@@ -15,6 +15,7 @@ import { fetchMyOrders } from '@/features/orders/api/orders.api';
 import { formatEGP, formatTimeAgo } from '@/utils';
 import { QUERY_KEYS, ORDER_POLL_INTERVAL } from '@/constants';
 import type { Order } from '@/types';
+import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
 export default function OrdersScreen() {
   const { colors } = useTheme();
@@ -22,11 +23,13 @@ export default function OrdersScreen() {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
+  useRealtimeInvalidate('orders', [QUERY_KEYS.MY_ORDERS, user?.id]);
+
   const orders = useQuery({
     queryKey: [QUERY_KEYS.MY_ORDERS, user?.id],
     queryFn: () => fetchMyOrders(user!.id),
     enabled: !!user,
-    refetchInterval: ORDER_POLL_INTERVAL,
+    refetchInterval: ORDER_POLL_INTERVAL * 5,
   });
 
   const onRefresh = useCallback(async () => {
@@ -62,10 +65,11 @@ export default function OrdersScreen() {
           emoji="📦"
           title="لا توجد طلبات"
           description="لم تقم بأي طلب بعد. تصفّح المنيو واطلب أكلتك المفضلة!"
-          action={{ label: 'تصفّح المنيو', onPress: () => router.push('/(tabs)/menu') }}
+          action={{ label: 'تصفّح المنيو', onPress: () => router.navigate('/(tabs)/menu') }}
         />
       ) : (
         <FlatList
+          removeClippedSubviews={false}
           data={orders.data}
           keyExtractor={(o, i) => o.id || `ord-${i}`}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
@@ -106,7 +110,11 @@ function OrderCard({ order, onPress, colors }: { order: Order; onPress: () => vo
         </View>
       </View>
 
-      <OrderStatusBadge status={order.status} />
+      <OrderStatusBadge
+        status={order.status}
+        isScheduled={order.is_scheduled}
+        scheduledFor={order.scheduled_for}
+      />
     </Pressable>
   );
 }
