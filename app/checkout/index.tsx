@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { CheckCircle2 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
+import * as Crypto from 'expo-crypto';
 import { useTheme } from '@/theme/ThemeContext';
 import { fontFamily, fontSize, radius, spacing } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
@@ -44,6 +45,7 @@ export default function CheckoutScreen() {
   const { items, subtotal, totalItems, clear } = useCart();
   const [paymentMethod, setPaymentMethod] = useState<'cash'>('cash');
   const isSubmittingRef = useRef(false);
+  const orderAttemptKeyRef = useRef<string | null>(null);
   const [form, setForm] = useState<CheckoutForm>({
     full_name: profile?.full_name ?? '',
     phone: profile?.phone ?? '',
@@ -182,13 +184,18 @@ export default function CheckoutScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
+  useEffect(() => {
+    orderAttemptKeyRef.current = null;
+  }, [form, items, activeDate, activeTime, paymentMethod]);
+
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (idempotencyKey: string) => {
       const scheduledIso = new Date(`${activeDate}T${activeTime}:00`).toISOString();
       const now = new Date();
       const isScheduled = new Date(scheduledIso).getTime() - now.getTime() > 10 * 60 * 1000;
 
       return placeOrder({
+        idempotency_key: idempotencyKey,
         customer_name: form.full_name.trim(),
         customer_phone: form.phone.trim(),
         customer_email: form.email.trim() || undefined,
@@ -213,6 +220,7 @@ export default function CheckoutScreen() {
       });
     },
     onSuccess: async (res) => {
+      orderAttemptKeyRef.current = null;
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       clear();
       requestAnimationFrame(() => {
@@ -235,7 +243,9 @@ export default function CheckoutScreen() {
     }
     if (validate()) {
       isSubmittingRef.current = true;
-      mutation.mutate(undefined, {
+      const idempotencyKey = orderAttemptKeyRef.current ?? Crypto.randomUUID();
+      orderAttemptKeyRef.current = idempotencyKey;
+      mutation.mutate(idempotencyKey, {
         onError: () => {
           isSubmittingRef.current = false;
         },

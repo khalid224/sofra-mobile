@@ -5,37 +5,44 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  enforceRateLimit,
+  errorResponse,
+  HttpError,
+  jsonResponse,
+  requestKey,
+  requireActiveAdmin,
+  requireMethod,
+  requireSecret,
+} from '../_shared/http-security.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    requireMethod(req, 'POST');
+    const declaredLength = Number(req.headers.get('content-length') ?? 0);
+    if (declaredLength > 1_024 || (await req.arrayBuffer()).byteLength > 1_024) {
+      throw new HttpError(413, 'REQUEST_TOO_LARGE');
+    }
+
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       serviceRoleKey,
     );
 
-    const authHeader = req.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '') ?? '';
-    if (!token) throw new Error('غير مصرح');
-    if (token !== serviceRoleKey) {
-      const { data: { user }, error: authError } = await admin.auth.getUser(token);
-      if (authError || !user) throw new Error('غير مصرح');
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('role, status')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (profile?.role !== 'admin' || profile.status !== 'active') {
-        throw new Error('للمديرين فقط');
-      }
+    let generatedBy: string | null = null;
+    let caller = 'cron';
+    if (req.headers.has('x-cron-secret')) {
+      requireSecret(req, 'x-cron-secret', 'CRON_SECRET');
+    } else {
+      const user = await requireActiveAdmin(admin, req);
+      generatedBy = user.id;
+      caller = user.id;
     }
+    enforceRateLimit(requestKey(req, 'daily-report', caller), 5, 60 * 60_000);
 
     const now = new Date();
     const yesterday = new Date(now);
@@ -87,12 +94,14 @@ serve(async (req) => {
     };
 
     // Store report in DB
-    await admin.from('app_settings').upsert({
-      key: `report_daily_${report.date}`,
-      value: JSON.stringify(report),
-      description: `تقرير يومي: ${report.date}`,
+    const { error: reportError } = await admin.from('daily_reports').upsert({
+      report_date: report.date,
+      report,
+      generated_at: now.toISOString(),
+      generated_by: generatedBy,
       updated_at: now.toISOString(),
     });
+    if (reportError) throw reportError;
 
     // Send push notification to all admins
     const { data: adminTokens } = await admin
@@ -119,15 +128,9 @@ serve(async (req) => {
     }
 
     console.log('[daily-report] done:', JSON.stringify(report.orders));
-    return new Response(JSON.stringify(report), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse(report);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'خطأ غير متوقع';
-    console.error('[daily-report] error:', message);
-    return new Response(JSON.stringify({ error: message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    console.error('[daily-report] error:', err instanceof Error ? err.message : 'UNEXPECTED_ERROR');
+    return errorResponse(err);
   }
 });

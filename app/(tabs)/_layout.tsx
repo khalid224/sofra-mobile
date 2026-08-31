@@ -7,17 +7,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { fetchUnreadCount } from '@/features/notifications/api/notifications.api';
 import { QUERY_KEYS } from '@/constants';
+import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
   const { user } = useAuth();
 
-  // Poll unread notifications count for badge
+  useRealtimeInvalidate('notifications', [QUERY_KEYS.NOTIFICATIONS]);
+
   const unreadQuery = useQuery({
     queryKey: [QUERY_KEYS.NOTIFICATIONS, 'unread', user?.id],
     queryFn: () => fetchUnreadCount(user!.id),
     enabled: !!user,
-    refetchInterval: 30_000,
   });
   const unread = unreadQuery.data ?? 0;
   const tabStyle = {

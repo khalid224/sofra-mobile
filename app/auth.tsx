@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/theme/ThemeContext';
-import { fontFamily, fontSize, radius, shadow, spacing } from '@/theme/tokens';
+import { fontFamily, fontSize, shadow, spacing } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Button } from '@/components/ui/Button';
 import { Input, Label, Divider } from '@/components/ui/Primitives';
@@ -47,46 +47,14 @@ export default function AuthScreen() {
       if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
         if (result.type === 'success' && result.url) {
-          // 1. Parse hash fragments (Implicit Grant Flow)
-          const hashIndex = result.url.indexOf('#');
-          if (hashIndex !== -1) {
-            const hash = result.url.substring(hashIndex + 1);
-            const params = new URLSearchParams(hash);
-            const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
-            if (accessToken && refreshToken) {
-              const { error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              });
-              if (sessionError) throw sessionError;
-              Toast.show({ type: 'success', text1: 'مرحباً بك!', text2: 'تم تسجيل الدخول بنجاح' });
-              router.replace('/(tabs)');
-              return;
-            }
-          }
-
-          // 2. Parse query parameters (PKCE Flow / Authorization Code Flow)
-          const queryIndex = result.url.indexOf('?');
-          if (queryIndex !== -1) {
-            const query = result.url.substring(queryIndex + 1).split('#')[0];
-            const params = new URLSearchParams(query);
-            const code = params.get('code');
-            if (code) {
-              const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-              if (exchangeError) throw exchangeError;
-              Toast.show({ type: 'success', text1: 'مرحباً بك!', text2: 'تم تسجيل الدخول بنجاح' });
-              router.replace('/(tabs)');
-              return;
-            }
-          }
-
-          // 3. Fallback check for session
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            Toast.show({ type: 'success', text1: 'مرحباً بك!', text2: 'تم تسجيل الدخول بنجاح' });
-            router.replace('/(tabs)');
-          }
+          const parsed = Linking.parse(result.url);
+          const rawCode = parsed.queryParams?.code;
+          const code = Array.isArray(rawCode) ? rawCode[0] : rawCode;
+          if (!code || typeof code !== 'string') throw new Error('لم يصل رمز PKCE صالح');
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) throw exchangeError;
+          Toast.show({ type: 'success', text1: 'مرحباً بك!', text2: 'تم تسجيل الدخول بنجاح' });
+          router.replace('/(tabs)');
         }
       }
     } catch (e: unknown) {

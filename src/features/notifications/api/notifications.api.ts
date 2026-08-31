@@ -1,30 +1,49 @@
 import { supabase } from '@/lib/supabase';
 import { handleSupabaseError } from '@/lib/errors';
-import type { AppNotification, UUID } from '@/types';
+import type { AppNotification, PaginatedResponse, UUID } from '@/types';
 
 const NOTIFICATION_FIELDS = `id, user_id, title, body, type, is_read, created_at, data`;
 
-export async function fetchNotifications(userId: UUID): Promise<AppNotification[]> {
-  const { data, error } = await supabase
+export async function fetchNotifications(
+  userId: UUID,
+  page = 1,
+  pageSize = 20,
+): Promise<PaginatedResponse<AppNotification>> {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const { data, error, count } = await supabase
     .from('notifications')
-    .select(NOTIFICATION_FIELDS)
+    .select(NOTIFICATION_FIELDS, { count: 'exact' })
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(50);
+    .range(from, to);
 
   if (error && error.message.includes('column notifications.data does not exist')) {
     console.warn('[notifications.api] data column missing, querying basic fields');
     const fallbackRes = await supabase
       .from('notifications')
-      .select('id, user_id, title, body, type, is_read, created_at')
+      .select('id, user_id, title, body, type, is_read, created_at', { count: 'exact' })
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(50);
-    return (fallbackRes.data ?? []) as AppNotification[];
+      .range(from, to);
+    handleSupabaseError(fallbackRes.error);
+    return {
+      data: (fallbackRes.data ?? []) as AppNotification[],
+      count: fallbackRes.count ?? 0,
+      page,
+      pageSize,
+      hasMore: from + (fallbackRes.data?.length ?? 0) < (fallbackRes.count ?? 0),
+    };
   }
 
   handleSupabaseError(error);
-  return (data ?? []) as AppNotification[];
+  return {
+    data: (data ?? []) as AppNotification[],
+    count: count ?? 0,
+    page,
+    pageSize,
+    hasMore: from + (data?.length ?? 0) < (count ?? 0),
+  };
 }
 
 export async function fetchUnreadCount(userId: UUID): Promise<number> {

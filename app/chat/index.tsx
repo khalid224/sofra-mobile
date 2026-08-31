@@ -12,8 +12,8 @@ import { LoadingScreen, EmptyState } from '@/components/ui/States';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchOrCreateThread, fetchMessages, sendMessage, markThreadRead } from '@/features/chat/api/chat.api';
 import { formatTimeAgo } from '@/utils';
-import { CHAT_POLL_INTERVAL } from '@/constants';
 import type { ChatMessage } from '@/types';
+import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
 export default function ChatScreen() {
   const { colors } = useTheme();
@@ -29,11 +29,12 @@ export default function ChatScreen() {
     enabled: !!user,
   });
 
+  useRealtimeInvalidate('chat_messages', ['chat-messages', thread.data?.id]);
+
   const messages = useQuery({
     queryKey: ['chat-messages', thread.data?.id],
     queryFn: () => fetchMessages(thread.data!.id),
     enabled: !!thread.data?.id,
-    refetchInterval: CHAT_POLL_INTERVAL,
   });
 
   useEffect(() => {

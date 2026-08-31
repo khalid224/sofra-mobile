@@ -2,8 +2,6 @@ export const APP_NAME = 'sofra';
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_CART_QUANTITY = 20;
 export const MIN_ORDER_AMOUNT = 0;
-export const CHAT_POLL_INTERVAL = 5000; // 5 seconds
-export const ORDER_POLL_INTERVAL = 6000; // 6 seconds
 export const DASHBOARD_REFRESH_INTERVAL = 30000;
 
 export const PAYMENT_METHOD_LABELS = {
@@ -60,4 +58,3 @@ export const QUERY_KEYS = {
   APPROVED_REVIEWS: 'approved-reviews',
   BRAND_SETTINGS: 'brand-settings',
 } as const;
-

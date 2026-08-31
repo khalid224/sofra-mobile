@@ -1,22 +1,20 @@
-import { ScrollView, Text, View, Pressable, Linking } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ScrollView, Text, View, Linking } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Circle, Dot, Phone, Clock } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CheckCircle2, Circle, Clock } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { fontFamily, fontSize, radius, spacing } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Primitives';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/ui/States';
-import { fetchOrderById, fetchOrderItems, fetchOrderTimeline } from '@/features/orders/api/orders.api';
+import { fetchOrderById, fetchOrderItems } from '@/features/orders/api/orders.api';
 import { fetchSettings } from '@/features/home/api/settings.api';
 import { formatEGP, formatDate, getStepIndex } from '@/utils';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { ORDER_STATUS_LABELS, ORDER_TIMELINE_STEPS } from '@/types';
-import { QUERY_KEYS, ORDER_POLL_INTERVAL } from '@/constants';
+import { QUERY_KEYS } from '@/constants';
 import { RatingBanner } from '@/features/reviews/components/RatingBanner';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
@@ -24,30 +22,19 @@ import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 export default function OrderTrackScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   useRealtimeInvalidate('orders', [QUERY_KEYS.ORDER, id]);
   useRealtimeInvalidate('order_items', ['order-items', id]);
-  useRealtimeInvalidate('order_timeline', [QUERY_KEYS.ORDER_TIMELINE, id]);
 
   const order = useQuery({ 
     queryKey: [QUERY_KEYS.ORDER, id], 
-    queryFn: () => fetchOrderById(id!), 
-    refetchInterval: ORDER_POLL_INTERVAL * 5,
+    queryFn: () => fetchOrderById(id!),
     enabled: !!id 
   });
   
   const items = useQuery({ 
     queryKey: ['order-items', id], 
     queryFn: () => fetchOrderItems(id!), 
-    enabled: !!id 
-  });
-  
-  const timeline = useQuery({ 
-    queryKey: [QUERY_KEYS.ORDER_TIMELINE, id], 
-    queryFn: () => fetchOrderTimeline(id!), 
-    refetchInterval: ORDER_POLL_INTERVAL * 5,
     enabled: !!id 
   });
   

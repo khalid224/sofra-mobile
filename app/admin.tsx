@@ -8,8 +8,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { EmptyState } from '@/components/ui/States';
 
 const WEBSITE_URL = process.env.EXPO_PUBLIC_WEBSITE_URL ?? '';
-const ADMIN_URL = process.env.EXPO_PUBLIC_ADMIN_URL
+const RAW_ADMIN_URL = process.env.EXPO_PUBLIC_ADMIN_URL
   ?? (WEBSITE_URL ? WEBSITE_URL.replace(/\/$/, '') : '');
+
+function parseAdminUrl(value: string): { url: string; origin: string } | null {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return null;
+    return { url: parsed.toString(), origin: parsed.origin };
+  } catch {
+    return null;
+  }
+}
+
+const ADMIN_CONFIG = parseAdminUrl(RAW_ADMIN_URL);
 
 /**
  * لوحة الإدارة: تُحمَّل من رابط لوحة Next المنشورة.
@@ -33,13 +45,13 @@ export default function AdminScreen() {
     );
   }
 
-  if (!ADMIN_URL) {
+  if (!ADMIN_CONFIG) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ScreenHeader showBack title="لوحة الإدارة" showThemeToggle={false} />
         <View style={{ flex: 1, padding: spacing.xl, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.md, color: colors.mutedForeground, textAlign: 'center' }}>
-            حدد EXPO_PUBLIC_ADMIN_URL في ملف .env
+            حدد EXPO_PUBLIC_ADMIN_URL كرابط HTTPS صالح في ملف .env
           </Text>
         </View>
       </View>
@@ -51,7 +63,21 @@ export default function AdminScreen() {
       <ScreenHeader showBack title="لوحة الإدارة" showThemeToggle={false} />
       <WebView
         ref={webviewRef}
-        source={{ uri: ADMIN_URL }}
+        source={{ uri: ADMIN_CONFIG.url }}
+        originWhitelist={[ADMIN_CONFIG.origin]}
+        onShouldStartLoadWithRequest={(request) => {
+          try {
+            const target = new URL(request.url);
+            return target.protocol === 'https:' && target.origin === ADMIN_CONFIG.origin;
+          } catch {
+            return false;
+          }
+        }}
+        mixedContentMode="never"
+        allowFileAccess={false}
+        allowUniversalAccessFromFileURLs={false}
+        javaScriptCanOpenWindowsAutomatically={false}
+        setSupportMultipleWindows={false}
         startInLoadingState
         renderLoading={() => (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>

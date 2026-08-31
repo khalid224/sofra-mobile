@@ -29,51 +29,32 @@ export default function AuthCallbackScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{
     code?: string;
-    access_token?: string;
-    refresh_token?: string;
     error?: string;
     error_description?: string;
   }>();
+  const { code, error, error_description: errorDescription } = params;
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
         // Handle PKCE / Authorization Code flow (code in query params)
-        if (params.code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(params.code);
-          if (error) throw error;
-          Toast.show({ type: 'success', text1: 'مرحباً بك!', text2: 'تم تسجيل الدخول بنجاح' });
-          router.replace('/(tabs)');
-          return;
-        }
-
-        // Handle Implicit flow (tokens in hash — Expo Router parses them as params)
-        if (params.access_token && params.refresh_token) {
-          const { error } = await supabase.auth.setSession({
-            access_token: params.access_token,
-            refresh_token: params.refresh_token,
-          });
-          if (error) throw error;
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) throw exchangeError;
           Toast.show({ type: 'success', text1: 'مرحباً بك!', text2: 'تم تسجيل الدخول بنجاح' });
           router.replace('/(tabs)');
           return;
         }
 
         // Handle error redirects from Supabase
-        if (params.error) {
-          console.error('[AuthCallback] OAuth error:', params.error, params.error_description);
-          Toast.show({ type: 'error', text1: 'خطأ في تسجيل الدخول', text2: params.error_description ?? params.error });
+        if (error) {
+          console.error('[AuthCallback] OAuth error:', error, errorDescription);
+          Toast.show({ type: 'error', text1: 'خطأ في تسجيل الدخول', text2: errorDescription ?? error });
           router.replace('/auth');
           return;
         }
 
-        // Fallback: check if a session exists already
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          router.replace('/(tabs)');
-        } else {
-          router.replace('/auth');
-        }
+        throw new Error('لم يصل رمز PKCE صالح');
       } catch (e: unknown) {
         console.error('[AuthCallback] Error:', e);
         Toast.show({
@@ -86,7 +67,7 @@ export default function AuthCallbackScreen() {
     };
 
     handleCallback();
-  }, []);
+  }, [code, error, errorDescription, router]);
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>

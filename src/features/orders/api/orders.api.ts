@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { handleSupabaseError } from '@/lib/errors';
-import type { Order, OrderItem, OrderTimeline, UUID } from '@/types';
+import type { Order, OrderItem, OrderTimeline, PaginatedResponse, UUID } from '@/types';
 
 const ORDER_FIELDS = `
   id, customer_id, address_id, cook_id, order_number,
@@ -19,6 +19,7 @@ const ORDER_ITEM_FIELDS = `
 
 
 export interface PlaceOrderInput {
+  idempotency_key: UUID;
   customer_name: string;
   customer_phone: string;
   customer_email?: string;
@@ -27,14 +28,14 @@ export interface PlaceOrderInput {
   delivery_area: string;
   notes?: string;
   payment_method: 'cash';
-  items: Array<{
+  items: {
     meal_id: UUID;
     quantity: number;
     customer_notes?: string;
     today_special_id?: UUID;
     variant_id?: UUID;
-    extras?: Array<{ id: UUID; name: string; price: number }>;
-  }>;
+    extras?: { id: UUID; name: string; price: number }[];
+  }[];
   estimated_delivery?: string; // ISO datetime string for preparation/delivery schedule
   is_scheduled?: boolean;
   scheduled_for?: string;
@@ -51,6 +52,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId: UUI
       throw new Error('توجد كمية غير صالحة في السلة');
     }
     if ((item.customer_notes?.length ?? 0) > 500) throw new Error('ملاحظات أحد الأصناف طويلة جدًا');
+    if ((item.extras?.length ?? 0) > 20) throw new Error('عدد الإضافات لأحد الأصناف أكبر من الحد المسموح');
   }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -58,6 +60,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId: UUI
   if (!user) throw new Error('يجب تسجيل الدخول قبل إتمام الطلب');
 
   const payload = {
+    idempotency_key: input.idempotency_key,
     payment_method: input.payment_method,
     notes: input.notes ?? null,
     scheduled_for: input.scheduled_for ?? input.estimated_delivery ?? null,
@@ -81,7 +84,11 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId: UUI
     })),
   };
 
-  const { data, error } = await supabase.rpc('place_order_atomic_v2', {
+  if (JSON.stringify(payload).length > 50_000) {
+    throw new Error('حجم بيانات الطلب أكبر من الحد المسموح');
+  }
+
+  const { data, error } = await supabase.rpc('place_order_atomic_v3', {
     p_payload: payload,
   });
   handleSupabaseError(error);
@@ -90,14 +97,27 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId: UUI
 }
 
 
-export async function fetchMyOrders(userId: UUID): Promise<Order[]> {
-  const { data, error } = await supabase
+export async function fetchMyOrders(
+  userId: UUID,
+  page = 1,
+  pageSize = 20,
+): Promise<PaginatedResponse<Order>> {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const { data, error, count } = await supabase
     .from('orders')
-    .select(ORDER_FIELDS)
+    .select(ORDER_FIELDS, { count: 'exact' })
     .eq('customer_id', userId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(from, to);
   handleSupabaseError(error);
-  return (data ?? []) as Order[];
+  return {
+    data: (data ?? []) as Order[],
+    count: count ?? 0,
+    page,
+    pageSize,
+    hasMore: from + (data?.length ?? 0) < (count ?? 0),
+  };
 }
 
 export async function fetchOrderById(id: UUID): Promise<Order> {

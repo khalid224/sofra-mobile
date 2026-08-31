@@ -38,8 +38,8 @@ export default function ComplaintsScreen() {
   });
 
   const orders = useQuery({
-    queryKey: [QUERY_KEYS.MY_ORDERS, user?.id],
-    queryFn: () => fetchMyOrders(user!.id),
+    queryKey: ['complaint-order-options', user?.id],
+    queryFn: async () => (await fetchMyOrders(user!.id, 1, 50)).data,
     enabled: !!user && modalOpen,
   });
 

@@ -6,16 +6,21 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { z } from 'https://esm.sh/zod@3.24.2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  enforceRateLimit,
+  errorResponse,
+  jsonResponse,
+  readJsonLimited,
+  requestKey,
+  requireActiveAdmin,
+  requireMethod,
+} from '../_shared/http-security.ts';
 
 const schema = z.object({
   order_id: z.string().uuid(),
   cook_id: z.string().uuid().optional(), // If provided, skip recommendation and assign directly
-});
+}).strict();
 
 interface Cook {
   id: string;
@@ -51,20 +56,16 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    requireMethod(req, 'POST');
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Validate admin caller
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) throw new Error('غير مصرح');
-    const { data: { user } } = await admin.auth.getUser(authHeader.replace('Bearer ', ''));
-    if (!user) throw new Error('غير مصرح');
-    const { data: prof } = await admin.from('profiles').select('role, status').eq('id', user.id).single();
-    if (prof?.role !== 'admin' || prof.status !== 'active') throw new Error('للمديرين النشطين فقط');
+    const user = await requireActiveAdmin(admin, req);
+    enforceRateLimit(requestKey(req, 'assign-cook', user.id), 20);
 
-    const body = await req.json();
+    const body = await readJsonLimited<unknown>(req, 4_096);
     const input = schema.parse(body);
 
     // Fetch order details including customer_id for preferred cook lookup
@@ -220,21 +221,16 @@ serve(async (req) => {
 
     console.log('[assign-cook] assigned cook:', cook.full_name, 'order:', order.order_number);
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         ok: true,
         cook: { id: cook.id, name: cook.full_name, phone: (cook as { phone: string }).phone },
         whatsapp_url: waUrl,
         attempt: attemptNumber,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'خطأ غير متوقع';
-    console.error('[assign-cook] error:', message);
-    return new Response(JSON.stringify({ error: message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
+    console.error('[assign-cook] error:', err instanceof Error ? err.message : 'UNEXPECTED_ERROR');
+    return errorResponse(err);
   }
 });

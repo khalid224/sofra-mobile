@@ -28,9 +28,10 @@ export async function fetchMessages(threadId: UUID): Promise<ChatMessage[]> {
     .from('chat_messages')
     .select(MESSAGE_FIELDS)
     .eq('thread_id', threadId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(100);
   handleSupabaseError(error);
-  return (data ?? []) as ChatMessage[];
+  return ((data ?? []) as ChatMessage[]).reverse();
 }
 
 export async function sendMessage(threadId: UUID, message: string, senderType: 'customer' | 'admin'): Promise<void> {

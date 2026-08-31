@@ -15,6 +15,7 @@ export function useRealtimeInvalidate(table: string, queryKey: readonly unknown[
     const querySignature = JSON.stringify(queryKey);
 
     useEffect(() => {
+        const stableQueryKey = JSON.parse(querySignature) as unknown[];
         const channelSuffix = Array.from(querySignature).reduce((hash, char) => ((hash * 31) + char.charCodeAt(0)) | 0, 0);
         const channel = supabase
             .channel(`${table}-changes-${Math.abs(channelSuffix)}`)
@@ -22,7 +23,7 @@ export function useRealtimeInvalidate(table: string, queryKey: readonly unknown[
                 'postgres_changes',
                 { event: '*', schema: 'public', table },
                 () => {
-                    qc.invalidateQueries({ queryKey });
+                    qc.invalidateQueries({ queryKey: stableQueryKey });
                 },
             )
             .subscribe();

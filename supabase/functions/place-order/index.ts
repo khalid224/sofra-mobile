@@ -1,15 +1,21 @@
-// Compatibility wrapper around the authoritative place_order_atomic_v2 RPC.
+// Compatibility wrapper around the authoritative place_order_atomic_v3 RPC.
 // Pricing, stock, identity and delivery snapshots are all enforced in SQL.
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { z } from 'https://esm.sh/zod@3.24.2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  bearerToken,
+  corsHeaders,
+  enforceRateLimit,
+  errorResponse,
+  jsonResponse,
+  readJsonLimited,
+  requestKey,
+  requireMethod,
+} from '../_shared/http-security.ts';
 
 const schema = z.object({
+  idempotency_key: z.string().uuid(),
   customer_name: z.string().trim().min(2).max(100),
   customer_phone: z.string().trim().min(10).max(30),
   customer_email: z.string().trim().email().optional().or(z.literal('')),
@@ -27,34 +33,36 @@ const schema = z.object({
     customer_notes: z.string().trim().max(500).optional(),
     today_special_id: z.string().uuid().optional(),
     variant_id: z.string().uuid().optional(),
-    extras: z.array(z.object({ id: z.string().uuid() })).optional(),
-  })).min(1).max(30),
-});
+    extras: z.array(z.object({ id: z.string().uuid() }).strict()).max(20).optional(),
+  }).strict()).min(1).max(30),
+}).strict();
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) throw new Error('يجب تسجيل الدخول قبل إتمام الطلب');
+    requireMethod(req, 'POST');
+    const token = bearerToken(req);
+    const authHeader = `Bearer ${token}`;
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
-    const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await admin.auth.getUser(token);
     if (authError || !user) throw new Error('جلسة المستخدم غير صالحة');
+    enforceRateLimit(requestKey(req, 'place-order', user.id), 10);
 
-    const input = schema.parse(await req.json());
+    const input = schema.parse(await readJsonLimited<unknown>(req, 65_536));
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data, error } = await userClient.rpc('place_order_atomic_v2', {
+    const { data, error } = await userClient.rpc('place_order_atomic_v3', {
       p_payload: {
+        idempotency_key: input.idempotency_key,
         payment_method: input.payment_method,
         notes: input.notes ?? null,
         scheduled_for: input.scheduled_for ?? input.estimated_delivery ?? null,
@@ -73,15 +81,8 @@ serve(async (req) => {
     });
     if (error) throw error;
 
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 201,
-    });
+    return jsonResponse(data, 201);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'خطأ غير متوقع';
-    return new Response(JSON.stringify({ error: message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
+    return errorResponse(error);
   }
 });

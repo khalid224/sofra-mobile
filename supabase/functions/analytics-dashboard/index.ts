@@ -5,28 +5,28 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  enforceRateLimit,
+  errorResponse,
+  jsonResponse,
+  requestKey,
+  requireActiveAdmin,
+  requireMethod,
+} from '../_shared/http-security.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    requireMethod(req, 'GET');
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Authenticate admin
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) throw new Error('غير مصرح');
-    const { data: { user } } = await admin.auth.getUser(authHeader.replace('Bearer ', ''));
-    if (!user) throw new Error('غير مصرح');
-    const { data: prof } = await admin.from('profiles').select('role, status').eq('id', user.id).single();
-    if (prof?.role !== 'admin' || prof.status !== 'active') throw new Error('للمديرين النشطين فقط');
+    const user = await requireActiveAdmin(admin, req);
+    enforceRateLimit(requestKey(req, 'analytics-dashboard', user.id), 30);
 
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -122,15 +122,9 @@ serve(async (req) => {
 
     console.log('[analytics] computed for admin:', user.id, 'revenue_today:', revenueToday);
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'خطأ غير متوقع';
-    console.error('[analytics] error:', message);
-    return new Response(JSON.stringify({ error: message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
+    console.error('[analytics] error:', err instanceof Error ? err.message : 'UNEXPECTED_ERROR');
+    return errorResponse(err);
   }
 });

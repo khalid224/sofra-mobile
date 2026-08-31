@@ -1,13 +1,11 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Bell, BellOff, Check } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { fontFamily, fontSize, radius, spacing } from '@/theme/tokens';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { Button } from '@/components/ui/Button';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/States';
 import {
@@ -18,6 +16,7 @@ import {
 import { formatTimeAgo } from '@/utils';
 import { QUERY_KEYS } from '@/constants';
 import type { AppNotification, NotificationType } from '@/types';
+import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
 const TYPE_EMOJI: Record<NotificationType, string> = {
   order_received: '📦',
@@ -40,12 +39,16 @@ export default function NotificationsScreen() {
   const qc = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
-  const notifications = useQuery({
+  useRealtimeInvalidate('notifications', [QUERY_KEYS.NOTIFICATIONS]);
+
+  const notifications = useInfiniteQuery({
     queryKey: [QUERY_KEYS.NOTIFICATIONS, user?.id],
-    queryFn: () => fetchNotifications(user!.id),
+    queryFn: ({ pageParam }) => fetchNotifications(user!.id, pageParam),
     enabled: !!user,
-    refetchInterval: 15_000,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
   });
+  const notificationItems = notifications.data?.pages.flatMap((page) => page.data) ?? [];
 
   const markAllMut = useMutation({
     mutationFn: () => markAllRead(user!.id),
@@ -84,7 +87,7 @@ export default function NotificationsScreen() {
     }
   };
 
-  const unreadCount = (notifications.data ?? []).filter((n) => !n.is_read).length;
+  const unreadCount = notificationItems.filter((n) => !n.is_read).length;
 
   if (!user) {
     return (
@@ -123,7 +126,7 @@ export default function NotificationsScreen() {
 
       {notifications.isLoading ? (
         <SkeletonList count={5} />
-      ) : notifications.data?.length === 0 ? (
+      ) : notificationItems.length === 0 ? (
         <EmptyState
           emoji="🔔"
           title="لا توجد إشعارات"
@@ -132,10 +135,17 @@ export default function NotificationsScreen() {
       ) : (
         <FlatList
           removeClippedSubviews={false}
-          data={notifications.data}
+          data={notificationItems}
           keyExtractor={(item, index) => item.id || `notif-${index}`}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           contentContainerStyle={{ padding: spacing.md }}
+          onEndReached={() => {
+            if (notifications.hasNextPage && !notifications.isFetchingNextPage) void notifications.fetchNextPage();
+          }}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={notifications.isFetchingNextPage
+            ? <ActivityIndicator color={colors.primary} style={{ margin: spacing.md }} />
+            : null}
           ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
           renderItem={({ item }) => (
             <NotificationCard

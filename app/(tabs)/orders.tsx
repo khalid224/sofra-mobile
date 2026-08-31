@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Package } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
@@ -9,11 +9,10 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge';
 import { SkeletonList } from '@/components/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/States';
-import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMyOrders } from '@/features/orders/api/orders.api';
 import { formatEGP, formatTimeAgo } from '@/utils';
-import { QUERY_KEYS, ORDER_POLL_INTERVAL } from '@/constants';
+import { QUERY_KEYS } from '@/constants';
 import type { Order } from '@/types';
 import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
@@ -25,12 +24,14 @@ export default function OrdersScreen() {
 
   useRealtimeInvalidate('orders', [QUERY_KEYS.MY_ORDERS, user?.id]);
 
-  const orders = useQuery({
+  const orders = useInfiniteQuery({
     queryKey: [QUERY_KEYS.MY_ORDERS, user?.id],
-    queryFn: () => fetchMyOrders(user!.id),
+    queryFn: ({ pageParam }) => fetchMyOrders(user!.id, pageParam),
     enabled: !!user,
-    refetchInterval: ORDER_POLL_INTERVAL * 5,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
   });
+  const orderItems = orders.data?.pages.flatMap((page) => page.data) ?? [];
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -60,7 +61,7 @@ export default function OrdersScreen() {
 
       {orders.isLoading ? (
         <SkeletonList count={5} />
-      ) : orders.data?.length === 0 ? (
+      ) : orderItems.length === 0 ? (
         <EmptyState
           emoji="📦"
           title="لا توجد طلبات"
@@ -70,10 +71,17 @@ export default function OrdersScreen() {
       ) : (
         <FlatList
           removeClippedSubviews={false}
-          data={orders.data}
+          data={orderItems}
           keyExtractor={(o, i) => o.id || `ord-${i}`}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           contentContainerStyle={{ padding: spacing.md }}
+          onEndReached={() => {
+            if (orders.hasNextPage && !orders.isFetchingNextPage) void orders.fetchNextPage();
+          }}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={orders.isFetchingNextPage
+            ? <ActivityIndicator color={colors.primary} style={{ margin: spacing.md }} />
+            : null}
           ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
           renderItem={({ item }) => <OrderCard order={item} onPress={() => router.push(`/order/${item.id}`)} colors={colors} />}
         />

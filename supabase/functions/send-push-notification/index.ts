@@ -12,11 +12,16 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { z } from 'https://esm.sh/zod@3.24.2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  enforceRateLimit,
+  errorResponse,
+  jsonResponse,
+  readJsonLimited,
+  requestKey,
+  requireMethod,
+  requireSecret,
+} from '../_shared/http-security.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -36,19 +41,21 @@ const PREF_KEY_MAP: Record<string, string> = {
 };
 
 const schema = z.object({
-  user_ids: z.array(z.string().uuid()).min(1),
+  user_ids: z.array(z.string().uuid()).min(1).max(500),
   title: z.string().min(1).max(200),
   body: z.string().min(1).max(500),
-  data: z.record(z.string(), z.unknown()).optional(),
-  notification_type: z.string().optional(),
+  data: z.record(z.string(), z.unknown())
+    .refine((value) => JSON.stringify(value).length <= 16_384, 'Notification data is too large')
+    .optional(),
+  notification_type: z.string().max(64).optional(),
   // Optional geographic segmentation — for targeted broadcasts
   segmentation: z
     .object({
-      cities: z.array(z.string()).optional(),
-      areas: z.array(z.string()).optional(),
-    })
+      cities: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+      areas: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+    }).strict()
     .optional(),
-});
+}).strict();
 
 type ExpoPushTicket = {
   status: 'ok' | 'error';
@@ -68,17 +75,13 @@ function serializeError(error: unknown): string {
   }
 }
 
-function jsonResponse(body: Record<string, unknown>, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    requireMethod(req, 'POST');
+    requireSecret(req, 'x-webhook-secret', 'WEBHOOK_SECRET');
+    enforceRateLimit(requestKey(req, 'send-push'), 120);
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     if (!serviceRoleKey || !supabaseUrl) {
@@ -89,25 +92,7 @@ serve(async (req) => {
       serviceRoleKey,
     );
 
-    // Database triggers call with the service-role token. Human callers must
-    // have an authenticated, active admin profile.
-    const authHeader = req.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '') ?? '';
-    if (!token) throw new Error('غير مصرح');
-    if (token !== serviceRoleKey) {
-      const { data: { user }, error: authError } = await admin.auth.getUser(token);
-      if (authError || !user) throw new Error('غير مصرح');
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('role, status')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (profile?.role !== 'admin' || profile.status !== 'active') {
-        throw new Error('للمديرين فقط');
-      }
-    }
-
-    const body = await req.json();
+    const body = await readJsonLimited<unknown>(req, 262_144);
     const input = schema.parse(body);
 
     const prefKey = input.notification_type
@@ -270,8 +255,7 @@ serve(async (req) => {
     );
     return jsonResponse(responseBody, totalAccepted === 0 && totalRejected > 0 ? 502 : 200);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'خطأ غير متوقع';
     console.error('[send-push] status: error | full_error:', serializeError(err));
-    return jsonResponse({ ok: false, error: message }, 400);
+    return errorResponse(err);
   }
 });
