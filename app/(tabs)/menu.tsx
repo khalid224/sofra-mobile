@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { FlatList, Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { ActivityIndicator, FlatList, Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChefHat, SlidersHorizontal, X, Check, Clock3, Star, Truck } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,10 +42,15 @@ export default function MenuScreen() {
 
   const categories = useQuery({ queryKey: [QUERY_KEYS.CATEGORIES], queryFn: fetchCategories, staleTime: 60_000 });
   const subs = useQuery({ queryKey: ['subcategories', categoryId], queryFn: () => fetchSubcategories(categoryId), enabled: !!categoryId });
-  const meals = useQuery({
+  const meals = useInfiniteQuery({
     queryKey: [QUERY_KEYS.MEALS, categoryId, subcategoryId, sort],
-    queryFn: () => fetchMeals({ categoryId, subcategoryId, sort, pageSize: 40 }),
+    queryFn: ({ pageParam }) => fetchMeals({ categoryId, subcategoryId, sort, page: pageParam, pageSize: 20 }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
   });
+
+  const mealItems = meals.data?.pages.flatMap((page) => page.data) ?? [];
+  const mealsCount = meals.data?.pages[0]?.count ?? 0;
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -96,7 +101,7 @@ export default function MenuScreen() {
       {/* Filter bar */}
       <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
         <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground }}>
-          {meals.data?.count ?? 0} نتيجة
+          {mealsCount} نتيجة
         </Text>
         <Pressable
           onPress={() => setFiltersOpen(true)}
@@ -119,18 +124,25 @@ export default function MenuScreen() {
           contentContainerStyle={{ paddingHorizontal: spacing.sm }}
           renderItem={() => <View style={{ flex: 1 }}><SkeletonCard /></View>}
         />
-      ) : meals.data?.data.length === 0 ? (
+      ) : mealItems.length === 0 ? (
         <EmptyState emoji="🍽️" title="لا توجد أصناف" description="جرّب تغيير الفلتر أو القسم" />
       ) : (
         <FlatList
           removeClippedSubviews={false}
-          data={meals.data?.data}
+          data={mealItems}
           keyExtractor={(m) => m.id}
           numColumns={2}
           style={{ flex: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           contentContainerStyle={{ paddingHorizontal: spacing.sm, paddingBottom: 80 }}
           renderItem={({ item }) => <FoodCard meal={item} />}
+          onEndReached={() => {
+            if (meals.hasNextPage && !meals.isFetchingNextPage) meals.fetchNextPage();
+          }}
+          onEndReachedThreshold={0.45}
+          ListFooterComponent={meals.isFetchingNextPage ? (
+            <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.lg }} />
+          ) : null}
         />
       )}
 

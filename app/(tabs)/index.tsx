@@ -43,7 +43,7 @@ import { useCart } from '@/contexts/CartContext';
 import { QUERY_KEYS } from '@/constants';
 import { supabase } from '@/lib/supabase';
 import { formatEGP } from '@/utils';
-import type { AvailableToday } from '@/types';
+import type { AvailableToday, Meal } from '@/types';
 import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
 const CATEGORY_ICONS = ['🍽️', '🥘', '🥐', '🍰', '🥗', '🥤'];
@@ -57,6 +57,7 @@ export default function HomeScreen() {
   useRealtimeInvalidate('categories', [QUERY_KEYS.CATEGORIES]);
   useRealtimeInvalidate('meals', [QUERY_KEYS.MEALS]);
   useRealtimeInvalidate('meals', [QUERY_KEYS.POPULAR_MEALS]);
+  useRealtimeInvalidate('meals', [QUERY_KEYS.FEATURED_MEALS]);
   useRealtimeInvalidate('available_today', [QUERY_KEYS.AVAILABLE_TODAY]);
   useRealtimeInvalidate('reviews', [QUERY_KEYS.APPROVED_REVIEWS]);
   useRealtimeInvalidate('app_settings', [QUERY_KEYS.RESTAURANT_STATUS]);
@@ -64,6 +65,8 @@ export default function HomeScreen() {
 
   const categories = useQuery({ queryKey: [QUERY_KEYS.CATEGORIES], queryFn: fetchCategories, staleTime: 60_000 });
   const popular = useQuery({ queryKey: [QUERY_KEYS.POPULAR_MEALS], queryFn: () => fetchMeals({ popular: true, pageSize: 8 }) });
+  const featured = useQuery({ queryKey: [QUERY_KEYS.FEATURED_MEALS], queryFn: () => fetchMeals({ featured: true, pageSize: 8 }) });
+  const newest = useQuery({ queryKey: [QUERY_KEYS.MEALS, 'home-newest'], queryFn: () => fetchMeals({ sort: 'newest', pageSize: 8 }) });
   const todaySpecials = useQuery({ queryKey: [QUERY_KEYS.AVAILABLE_TODAY], queryFn: fetchAvailableToday, staleTime: 60_000 });
   const approvedReviews = useQuery({
     queryKey: [QUERY_KEYS.APPROVED_REVIEWS],
@@ -110,15 +113,17 @@ export default function HomeScreen() {
     await Promise.all([
       categories.refetch(),
       popular.refetch(),
+      featured.refetch(),
+      newest.refetch(),
       todaySpecials.refetch(),
       approvedReviews.refetch(),
       restaurantStatus.refetch(),
       brandSettings.refetch(),
     ]);
     setRefreshing(false);
-  }, [approvedReviews, brandSettings, categories, popular, restaurantStatus, todaySpecials]);
+  }, [approvedReviews, brandSettings, categories, featured, newest, popular, restaurantStatus, todaySpecials]);
 
-  if (categories.isError || popular.isError) return <ErrorState onRetry={onRefresh} />;
+  if (categories.isError || popular.isError || featured.isError || newest.isError) return <ErrorState onRetry={onRefresh} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -203,6 +208,24 @@ export default function HomeScreen() {
           ) : null}
         </View>
 
+        <MealRail
+          title="مختارات سفرة"
+          subtitle="أصناف مميزة اخترناها ليك"
+          icon={<ChefHat size={19} color={colors.primary} />}
+          meals={featured.data?.data}
+          loading={featured.isLoading}
+          onPress={() => router.navigate('/(tabs)/menu')}
+        />
+
+        <MealRail
+          title="أحدث الإضافات"
+          subtitle="كل جديد من مطبخ سفرة"
+          icon={<Sparkles size={19} color={colors.accent} />}
+          meals={newest.data?.data}
+          loading={newest.isLoading}
+          onPress={() => router.navigate('/(tabs)/menu')}
+        />
+
         {(approvedReviews.data?.length ?? 0) > 0 ? (
           <View>
             <SectionHeader
@@ -270,6 +293,45 @@ export default function HomeScreen() {
         <TrustStrip />
       </ScrollView>
       <FloatingButtons whatsappNumber={restaurantStatus.data?.whatsapp_number} />
+    </View>
+  );
+}
+
+function MealRail({
+  title,
+  subtitle,
+  icon,
+  meals,
+  loading,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  meals?: Meal[];
+  loading: boolean;
+  onPress: () => void;
+}) {
+  if (!loading && (meals?.length ?? 0) === 0) return null;
+
+  return (
+    <View>
+      <SectionHeader title={title} subtitle={subtitle} icon={icon} onPress={onPress} />
+      {loading ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.sm, paddingBottom: spacing.lg }}>
+          {Array.from({ length: 3 }).map((_, index) => <View key={index} style={{ width: 180 }}><SkeletonCard /></View>)}
+        </ScrollView>
+      ) : (
+        <FlatList
+          removeClippedSubviews={false}
+          data={meals}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(meal) => meal.id}
+          contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: spacing.lg }}
+          renderItem={({ item }) => <FoodCard meal={item} horizontal />}
+        />
+      )}
     </View>
   );
 }
