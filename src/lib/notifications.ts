@@ -22,7 +22,7 @@ export async function registerForPushNotificationsAsync(): Promise<string> {
       name: "إشعارات سفرة",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#0F766E",
+      lightColor: "#4A2A1F",
       sound: "default",
       enableVibrate: true,
     });

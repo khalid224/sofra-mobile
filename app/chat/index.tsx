@@ -67,7 +67,7 @@ export default function ChatScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScreenHeader showBack title="تواصل مع sofra" showThemeToggle={false} />
+      <ScreenHeader showBack title="تواصل مع سفرة" showThemeToggle={false} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <FlatList
           removeClippedSubviews={false}

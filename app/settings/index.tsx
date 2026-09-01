@@ -183,7 +183,7 @@ export default function SettingsScreen() {
 
         {/* App version */}
         <Text style={{ textAlign: 'center', fontFamily: fontFamily.regular, fontSize: fontSize.xs, color: colors.mutedForeground, marginTop: spacing.sm }}>
-          sofra v1.0.0 — © 2025 جميع الحقوق محفوظة
+          سفرة v1.0.0 — جميع الحقوق محفوظة
         </Text>
       </ScrollView>
     </View>

@@ -1,4 +1,4 @@
-export const APP_NAME = 'sofra';
+export const APP_NAME = 'سفرة';
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_CART_QUANTITY = 20;
 export const MIN_ORDER_AMOUNT = 0;
@@ -18,10 +18,10 @@ export const COMPLAINT_STATUS_LABELS = {
 } as const;
 
 export const COMPLAINT_STATUS_COLORS = {
-  open: '#DF2225',
-  investigating: '#F2A618',
-  resolved: '#399D57',
-  closed: '#71574B',
+  open: '#B42318',
+  investigating: '#A85F43',
+  resolved: '#747A52',
+  closed: '#6B4A3A',
 } as const;
 
 export const STORAGE_KEYS = {

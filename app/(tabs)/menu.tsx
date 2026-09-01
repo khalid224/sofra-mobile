@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SlidersHorizontal, X, Check, Clock3, Star, Truck } from 'lucide-react-native';
+import { ChefHat, SlidersHorizontal, X, Check, Clock3, Star, Truck } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/theme/ThemeContext';
 import { fontFamily, fontSize, gradients, radius, shadow, spacing } from '@/theme/tokens';
@@ -55,17 +55,17 @@ export default function MenuScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScreenHeader title="قائمة sofra" showBack={false} showSearch showThemeToggle={false} onSearchPress={() => router.push('/search')} />
+      <ScreenHeader title="منيو سفرة" showBack={false} showSearch showThemeToggle={false} onSearchPress={() => router.push('/search')} />
 
       <LinearGradient colors={gradients.primary} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={{ margin: spacing.md, marginBottom: spacing.sm, padding: spacing.md, borderRadius: radius.lg, overflow: 'hidden', ...shadow.sm }}>
         <View style={{ position: 'absolute', left: -20, top: -35, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.08)' }} />
         <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
           <View>
-            <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: fontSize.xl, textAlign: 'right' }}>Sofra Kitchen</Text>
+            <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: fontSize.xl, textAlign: 'right' }}>مطبخ سفرة</Text>
             <Text style={{ color: 'rgba(255,255,255,0.78)', fontFamily: fontFamily.regular, fontSize: fontSize.xs, textAlign: 'right', marginTop: 2 }}>أكل طازة بيتحضّر مخصوص ليك</Text>
           </View>
           <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 24 }}>🍲</Text>
+            <ChefHat size={24} color="#FFFFFF" />
           </View>
         </View>
         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.md, marginTop: spacing.compact }}>

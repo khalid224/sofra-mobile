@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   FlatList,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -22,7 +19,6 @@ import {
   ChefHat,
   Clock3,
   Flame,
-  Search,
   ShieldCheck,
   Sparkles,
   Star,
@@ -50,67 +46,16 @@ import { formatEGP } from '@/utils';
 import type { AvailableToday } from '@/types';
 import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
-interface OfferBanner {
-  id: string;
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-  cta: string;
-  colors: readonly [string, string];
-  icon: string;
-  action: 'menu' | 'specials';
-}
-
-const OFFERS: OfferBanner[] = [
-  {
-    id: 'quick',
-    eyebrow: 'توصيل أسهل وأسرع',
-    title: 'كل اللي تحبه\nلحد بابك',
-    subtitle: 'اختار طلبك وسيب الباقي علينا',
-    cta: 'اطلب دلوقتي',
-    colors: gradients.primary,
-    icon: '🛵',
-    action: 'menu',
-  },
-  {
-    id: 'offers',
-    eyebrow: 'عروض محدودة',
-    title: 'عرض اليوم\nمستنيك',
-    subtitle: 'أصناف طازة بكميات محدودة كل يوم',
-    cta: 'شوف العروض',
-    colors: gradients.accent,
-    icon: '🎁',
-    action: 'specials',
-  },
-  {
-    id: 'quality',
-    eyebrow: 'جودة تستحق الثقة',
-    title: 'طازة، آمن،\nومتغلف بعناية',
-    subtitle: 'متابعة واضحة من الطلب لحد الاستلام',
-    cta: 'اكتشف القائمة',
-    colors: ['#115E59', '#0F766E'],
-    icon: '✨',
-    action: 'menu',
-  },
-];
-
 const CATEGORY_ICONS = ['🍽️', '🥘', '🥐', '🍰', '🥗', '🥤'];
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { width } = useWindowDimensions();
   const { addItem } = useCart();
   const [refreshing, setRefreshing] = useState(false);
-  const [activeOffer, setActiveOffer] = useState(0);
-  const offersRef = useRef<FlatList<OfferBanner>>(null);
-  const mainScrollRef = useRef<ScrollView>(null);
-  const specialsOffset = useRef(0);
-  const offerWidth = width - spacing.md * 2;
 
   useRealtimeInvalidate('categories', [QUERY_KEYS.CATEGORIES]);
   useRealtimeInvalidate('meals', [QUERY_KEYS.MEALS]);
-  useRealtimeInvalidate('meals', [QUERY_KEYS.FEATURED_MEALS]);
   useRealtimeInvalidate('meals', [QUERY_KEYS.POPULAR_MEALS]);
   useRealtimeInvalidate('available_today', [QUERY_KEYS.AVAILABLE_TODAY]);
   useRealtimeInvalidate('reviews', [QUERY_KEYS.APPROVED_REVIEWS]);
@@ -118,9 +63,7 @@ export default function HomeScreen() {
   useRealtimeInvalidate('brand_settings', [QUERY_KEYS.BRAND_SETTINGS]);
 
   const categories = useQuery({ queryKey: [QUERY_KEYS.CATEGORIES], queryFn: fetchCategories, staleTime: 60_000 });
-  const featured = useQuery({ queryKey: [QUERY_KEYS.FEATURED_MEALS], queryFn: () => fetchMeals({ featured: true, pageSize: 8 }) });
   const popular = useQuery({ queryKey: [QUERY_KEYS.POPULAR_MEALS], queryFn: () => fetchMeals({ popular: true, pageSize: 8 }) });
-  const newest = useQuery({ queryKey: [QUERY_KEYS.MEALS, 'newest'], queryFn: () => fetchMeals({ sort: 'newest', pageSize: 8 }) });
   const todaySpecials = useQuery({ queryKey: [QUERY_KEYS.AVAILABLE_TODAY], queryFn: fetchAvailableToday, staleTime: 60_000 });
   const approvedReviews = useQuery({
     queryKey: [QUERY_KEYS.APPROVED_REVIEWS],
@@ -149,7 +92,7 @@ export default function HomeScreen() {
       const { data, error } = await supabase
         .from('brand_settings')
         .select('key, value')
-        .in('key', ['hero_image_url', 'home_title', 'home_subtitle']);
+        .eq('key', 'hero_image_url');
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((row) => { map[row.key] = row.value ?? ''; });
@@ -162,138 +105,38 @@ export default function HomeScreen() {
   const closeTime = restaurantStatus.data?.restaurant_close_time ?? '22:00';
   const closedMessage = restaurantStatus.data?.restaurant_closed_msg ?? 'مغلق حاليًا، تقدر تتصفح القائمة وتطلب لاحقًا';
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveOffer((current) => {
-        const next = (current + 1) % OFFERS.length;
-        offersRef.current?.scrollToIndex({ index: next, animated: true });
-        return next;
-      });
-    }, 4500);
-    return () => clearInterval(timer);
-  }, []);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
       categories.refetch(),
-      featured.refetch(),
       popular.refetch(),
-      newest.refetch(),
       todaySpecials.refetch(),
       approvedReviews.refetch(),
       restaurantStatus.refetch(),
       brandSettings.refetch(),
     ]);
     setRefreshing(false);
-  }, [approvedReviews, brandSettings, categories, featured, newest, popular, restaurantStatus, todaySpecials]);
+  }, [approvedReviews, brandSettings, categories, popular, restaurantStatus, todaySpecials]);
 
-  const mainSections = useMemo(() => [
-    { key: 'popular', title: 'الأكثر طلبًا', subtitle: 'اختيارات العملاء المفضلة', icon: <Flame size={19} color={colors.accent} />, data: popular.data?.data ?? [] },
-    { key: 'featured', title: 'مختاراتنا ليك', subtitle: 'أصناف مميزة تستحق التجربة', icon: <Sparkles size={19} color={colors.primary} />, data: featured.data?.data ?? [] },
-    { key: 'newest', title: 'جديد على sofra', subtitle: 'أحدث الإضافات للقائمة', icon: <Star size={19} color={colors.star} />, data: newest.data?.data ?? [] },
-  ], [colors.accent, colors.primary, colors.star, featured.data?.data, newest.data?.data, popular.data?.data]);
-
-  if (categories.isError || featured.isError) return <ErrorState onRetry={onRefresh} />;
-
-  const handleOfferPress = (offer: OfferBanner) => {
-    if (offer.action === 'specials') mainScrollRef.current?.scrollTo({ y: Math.max(specialsOffset.current - 12, 0), animated: true });
-    else router.navigate('/(tabs)/menu');
-  };
+  if (categories.isError || popular.isError) return <ErrorState onRetry={onRefresh} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader showLogo showSearch showActions showThemeToggle={false} onSearchPress={() => router.push('/search')} />
 
       <ScrollView
-        ref={mainScrollRef}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
         contentContainerStyle={{ paddingBottom: 104 }}
       >
         <RestaurantStatus open={isOpen} closeTime={closeTime} message={closedMessage} />
 
-        <PressableScale
-          onPress={() => router.push('/search')}
-          style={{ marginHorizontal: spacing.md, marginTop: spacing.md }}
-          contentStyle={{
-            height: 52,
-            borderRadius: radius.lg,
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.border,
-            paddingHorizontal: spacing.md,
-            flexDirection: 'row-reverse',
-            alignItems: 'center',
-            gap: spacing.compact,
-            ...shadow.sm,
-          }}
-        >
-          <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center' }}>
-            <Search size={18} color={colors.primary} />
-          </View>
-          <Text style={{ flex: 1, color: colors.mutedForeground, fontFamily: fontFamily.regular, fontSize: fontSize.md, textAlign: 'right' }}>
-            بتدور على إيه النهارده؟
-          </Text>
-        </PressableScale>
-
-        {brandSettings.data?.hero_image_url ? (
-          <ManagedHero
-            imageUrl={brandSettings.data.hero_image_url}
-            title={brandSettings.data.home_title || 'طعم البيت يوصلك لبيتك'}
-            subtitle={brandSettings.data.home_subtitle || 'أكل بيتي مصري أصيل، محضّر بحب'}
-            onPress={() => router.navigate('/(tabs)/menu')}
-          />
-        ) : (
-        <View style={{ marginTop: spacing.md }}>
-          <FlatList
-            removeClippedSubviews={false}
-            ref={offersRef}
-            data={OFFERS}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            snapToInterval={offerWidth + spacing.compact}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingHorizontal: spacing.md }}
-            ItemSeparatorComponent={() => <View style={{ width: spacing.compact }} />}
-            getItemLayout={(_, index) => ({ length: offerWidth + spacing.compact, offset: (offerWidth + spacing.compact) * index, index })}
-            onMomentumScrollEnd={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
-              const next = Math.round(event.nativeEvent.contentOffset.x / (offerWidth + spacing.compact));
-              setActiveOffer(Math.min(Math.max(next, 0), OFFERS.length - 1));
-            }}
-            renderItem={({ item }) => (
-              <PressableScale onPress={() => handleOfferPress(item)} style={{ width: offerWidth }} contentStyle={{ borderRadius: radius['2xl'], overflow: 'hidden' }}>
-                <LinearGradient colors={item.colors} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={{ height: 188, padding: spacing.lg, justifyContent: 'space-between', overflow: 'hidden' }}>
-                  <View style={{ position: 'absolute', left: -32, top: -45, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.09)' }} />
-                  <View style={{ position: 'absolute', left: 32, bottom: -62, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255,255,255,0.07)' }} />
-                  <Text style={{ position: 'absolute', left: 30, bottom: 33, fontSize: 64 }}>{item.icon}</Text>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.16)' }}>
-                      <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.semibold, fontSize: fontSize.xs }}>{item.eyebrow}</Text>
-                    </View>
-                    <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.extrabold, fontSize: fontSize['3xl'], lineHeight: 34, textAlign: 'right', marginTop: spacing.sm }}>
-                      {item.title}
-                    </Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.84)', fontFamily: fontFamily.regular, fontSize: fontSize.xs, textAlign: 'right', marginTop: 3 }}>
-                      {item.subtitle}
-                    </Text>
-                  </View>
-                  <View style={{ alignSelf: 'flex-end', flexDirection: 'row-reverse', alignItems: 'center', gap: 5 }}>
-                    <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: fontSize.sm }}>{item.cta}</Text>
-                    <ArrowLeft size={15} color="#FFFFFF" />
-                  </View>
-                </LinearGradient>
-              </PressableScale>
-            )}
-          />
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.compact }}>
-            {OFFERS.map((offer, index) => (
-              <View key={offer.id} style={{ width: index === activeOffer ? 22 : 6, height: 6, borderRadius: 3, backgroundColor: index === activeOffer ? colors.primary : colors.border }} />
-            ))}
-          </View>
-        </View>
-        )}
+        <ManagedHero
+          imageUrl={brandSettings.data?.hero_image_url || popular.data?.data[0]?.image_url}
+          title="أكل البيت… من غير تعب الطبخ"
+          subtitle="أكل مصري متحضّر بعناية، من البيت للبيت"
+          onPress={() => router.navigate('/(tabs)/menu')}
+        />
 
         <SectionHeader title="اختار القسم" subtitle="وصل لطلبك في أقل خطوات" icon={<UtensilsCrossed size={19} color={colors.primary} />} onPress={() => router.navigate('/(tabs)/menu')} />
         {categories.isLoading ? (
@@ -315,8 +158,8 @@ export default function HomeScreen() {
         )}
 
         {(todaySpecials.isLoading || (todaySpecials.data?.length ?? 0) > 0) ? (
-          <View onLayout={(event) => { specialsOffset.current = event.nativeEvent.layout.y; }}>
-            <SectionHeader title="عروض النهارده" subtitle="كميات محدودة وبتتحضر طازة" icon={<BadgePercent size={19} color={colors.accent} />} />
+          <View>
+            <SectionHeader title="متاح النهارده" subtitle="كميات محدودة وبتتحضر طازة" icon={<BadgePercent size={19} color={colors.accent} />} />
             {todaySpecials.isLoading ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: spacing.lg }}>
                 {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} width={222} height={236} borderRadius={radius.lg} style={{ marginLeft: spacing.compact }} />)}
@@ -341,32 +184,30 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        {mainSections.map((section) => (
-          <View key={section.key}>
-            <SectionHeader title={section.title} subtitle={section.subtitle} icon={section.icon} onPress={() => router.navigate('/(tabs)/menu')} />
-            {featured.isLoading || popular.isLoading || newest.isLoading ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.sm, paddingBottom: spacing.lg }}>
-                {Array.from({ length: 3 }).map((_, index) => <View key={index} style={{ width: 180 }}><SkeletonCard /></View>)}
-              </ScrollView>
-            ) : section.data.length ? (
-              <FlatList
-                removeClippedSubviews={false}
-                data={section.data}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(meal) => meal.id}
-                contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: spacing.lg }}
-                renderItem={({ item }) => <FoodCard meal={item} horizontal />}
-              />
-            ) : null}
-          </View>
-        ))}
+        <View>
+          <SectionHeader title="الأكثر طلبًا" subtitle="اختيارات العملاء المفضلة" icon={<Flame size={19} color={colors.accent} />} onPress={() => router.navigate('/(tabs)/menu')} />
+          {popular.isLoading ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.sm, paddingBottom: spacing.lg }}>
+              {Array.from({ length: 3 }).map((_, index) => <View key={index} style={{ width: 180 }}><SkeletonCard /></View>)}
+            </ScrollView>
+          ) : (popular.data?.data.length ?? 0) > 0 ? (
+            <FlatList
+              removeClippedSubviews={false}
+              data={popular.data?.data}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(meal) => meal.id}
+              contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: spacing.lg }}
+              renderItem={({ item }) => <FoodCard meal={item} horizontal />}
+            />
+          ) : null}
+        </View>
 
         {(approvedReviews.data?.length ?? 0) > 0 ? (
           <View>
             <SectionHeader
               title="آراء العملاء"
-              subtitle="تجارب حقيقية من عملاء sofra"
+              subtitle="تجارب حقيقية من عملاء سفرة"
               icon={<Star size={19} color={colors.star} fill={colors.star} />}
               onPress={() => router.push('/reviews')}
             />
@@ -410,7 +251,7 @@ export default function HomeScreen() {
                     ) : null}
                   </View>
                   <Text style={{ color: colors.foreground, fontFamily: fontFamily.bold, fontSize: fontSize.sm, textAlign: 'right' }}>
-                    {review.customer?.full_name ?? 'عميل sofra'}
+                    {review.customer?.full_name ?? 'عميل سفرة'}
                   </Text>
                   {review.meal?.name ? (
                     <Text numberOfLines={1} style={{ color: colors.primary, fontFamily: fontFamily.medium, fontSize: fontSize.xs, textAlign: 'right' }}>
@@ -418,7 +259,7 @@ export default function HomeScreen() {
                     </Text>
                   ) : null}
                   <Text numberOfLines={3} style={{ color: colors.mutedForeground, fontFamily: fontFamily.regular, fontSize: fontSize.xs, lineHeight: 19, textAlign: 'right' }}>
-                    {review.comment || 'تجربة ممتازة وأنصح بالطلب من sofra.'}
+                    {review.comment || 'تجربة ممتازة وأنصح بالطلب من سفرة.'}
                   </Text>
                 </PressableScale>
               )}
@@ -433,16 +274,21 @@ export default function HomeScreen() {
   );
 }
 
-function ManagedHero({ imageUrl, title, subtitle, onPress }: { imageUrl: string; title: string; subtitle: string; onPress: () => void }) {
+function ManagedHero({ imageUrl, title, subtitle, onPress }: { imageUrl?: string | null; title: string; subtitle: string; onPress: () => void }) {
   return (
     <PressableScale
       onPress={onPress}
       style={{ marginHorizontal: spacing.md, marginTop: spacing.md }}
       contentStyle={{ height: 210, borderRadius: radius['2xl'], overflow: 'hidden', ...shadow.card }}
     >
-      <Image source={{ uri: imageUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={220} />
+      <Image
+        source={imageUrl ? { uri: imageUrl } : require('../../assets/images/placeholder.png')}
+        style={{ width: '100%', height: '100%' }}
+        contentFit={imageUrl ? 'cover' : 'contain'}
+        transition={220}
+      />
       <LinearGradient
-        colors={['rgba(15,23,42,0.08)', 'rgba(15,23,42,0.88)']}
+        colors={gradients.hero}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={{ position: 'absolute', inset: 0, padding: spacing.lg, justifyContent: 'flex-end', alignItems: 'flex-end' }}
@@ -454,7 +300,7 @@ function ManagedHero({ imageUrl, title, subtitle, onPress }: { imageUrl: string;
           {subtitle}
         </Text>
         <View style={{ marginTop: spacing.sm, paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.18)', flexDirection: 'row-reverse', alignItems: 'center', gap: 5 }}>
-          <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: fontSize.sm }}>تصفح القائمة</Text>
+          <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: fontSize.sm }}>اطلب دلوقتي</Text>
           <ArrowLeft size={14} color="#FFFFFF" />
         </View>
       </LinearGradient>

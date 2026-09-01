@@ -42,7 +42,7 @@ export default function ProfileScreen() {
             </Text>
           </View>
           <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.xl, color: colors.foreground, marginTop: spacing.sm }}>
-            {profile?.full_name ?? 'مستخدم sofra'}
+            {profile?.full_name ?? 'مستخدم سفرة'}
           </Text>
           <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground }}>
             {user?.email}

@@ -148,7 +148,7 @@ export function FoodCard({ meal, size = 'md', horizontal = false }: FoodCardProp
           hitSlop={8}
           style={{ position: 'absolute', top: 9, left: 9, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.94)', alignItems: 'center', justifyContent: 'center', ...shadow.sm }}
         >
-          <Heart size={17} color={isFav ? '#E11D48' : colors.foregroundSecondary} fill={isFav ? '#E11D48' : 'transparent'} />
+          <Heart size={17} color={isFav ? colors.destructive : colors.foregroundSecondary} fill={isFav ? colors.destructive : 'transparent'} />
         </Pressable>
       </View>
       <View style={{ padding: spacing.compact, gap: 7 }}>

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "sofra",
+    "name": "سفرة",
     "slug": "sofra",
     "scheme": "sofra",
     "version": "1.0.0",
@@ -13,7 +13,7 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFF9F1"
+      "backgroundColor": "#F9EEDB"
     },
     "ios": {
       "supportsTablet": false,
@@ -29,7 +29,7 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#CA4B20"
+        "backgroundColor": "#F9EEDB"
       },
       "permissions": [
         "CAMERA",
@@ -45,7 +45,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#CA4B20"
+          "color": "#4A2A1F"
         }
       ],
       "expo-splash-screen",

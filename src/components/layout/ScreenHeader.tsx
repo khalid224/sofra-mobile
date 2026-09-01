@@ -1,18 +1,18 @@
 import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { ArrowRight, Moon, Search, ShoppingBag, Sun, UserRound } from 'lucide-react-native';
+import { ArrowRight, Bell, Moon, Search, ShoppingBag, Sun } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '@/theme/ThemeContext';
 import { fontFamily, fontSize, shadow, spacing } from '@/theme/tokens';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { QUERY_KEYS } from '@/constants';
 import { PressableScale } from '@/components/ui/PressableScale';
+import { useQuery } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/constants';
+import { fetchUnreadCount } from '@/features/notifications/api/notifications.api';
+import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
 
 interface ScreenHeaderProps {
   title?: string;
@@ -51,12 +51,38 @@ function CartAction({ count, onPress }: { count: number; onPress: () => void }) 
   );
 }
 
+function NotificationAction({ userId, onPress }: { userId?: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  useRealtimeInvalidate('notifications', [QUERY_KEYS.NOTIFICATIONS], !!userId);
+  const unreadQuery = useQuery({
+    queryKey: [QUERY_KEYS.NOTIFICATIONS, 'unread', userId],
+    queryFn: () => fetchUnreadCount(userId!),
+    enabled: !!userId,
+  });
+  const unread = unreadQuery.data ?? 0;
+
+  return (
+    <PressableScale
+      onPress={onPress}
+      style={{ width: 42, height: 42 }}
+      contentStyle={{ width: 42, height: 42, borderRadius: 14, backgroundColor: colors.muted, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Bell size={20} color={unread ? colors.primary : colors.foregroundSecondary} />
+      {unread > 0 ? (
+        <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: colors.destructive, borderWidth: 2, borderColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: 9 }}>{unread > 99 ? '99+' : unread}</Text>
+        </View>
+      ) : null}
+    </PressableScale>
+  );
+}
+
 export function ScreenHeader({
   title,
   showBack = false,
   showLogo = false,
   showSearch = false,
-  showThemeToggle = true,
+  showThemeToggle = false,
   showActions = false,
   onSearchPress,
   rightElement,
@@ -65,26 +91,12 @@ export function ScreenHeader({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { totalItems } = useCart();
-  const { profile, user } = useAuth();
-
-  const brandQuery = useQuery({
-    queryKey: [QUERY_KEYS.BRAND_SETTINGS],
-    queryFn: async () => {
-      const { data } = await supabase.from('brand_settings').select('key, value').in('key', ['logo_url', 'home_title']);
-      const map: Record<string, string> = {};
-      (data ?? []).forEach((row) => { map[row.key] = row.value ?? ''; });
-      return map;
-    },
-    staleTime: 5 * 60_000,
-  });
+  const { user } = useAuth();
 
   const handleBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)');
   };
-
-  const logoUrl = brandQuery.data?.logo_url ?? '';
-  const displayName = profile?.full_name?.split(' ')[0] ?? '';
 
   return (
     <View
@@ -104,21 +116,12 @@ export function ScreenHeader({
     >
       <View style={{ flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
         {showLogo ? (
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
-            {logoUrl ? (
-              <Image source={{ uri: logoUrl }} style={{ width: 42, height: 42, borderRadius: 14 }} contentFit="cover" />
-            ) : (
-              <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.extrabold, fontSize: fontSize.lg }}>S</Text>
-              </View>
-            )}
-            <View>
-              <Text style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize.xl, color: colors.foreground, textAlign: 'right' }}>sofra</Text>
-              <Text style={{ fontFamily: fontFamily.regular, fontSize: 10, color: colors.mutedForeground, textAlign: 'right' }}>
-                {displayName ? `أهلًا، ${displayName}` : 'كل اللي تحبه لحد بابك'}
-              </Text>
-            </View>
-          </View>
+          <Text
+            accessibilityRole="header"
+            style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize['3xl'], lineHeight: 38, color: colors.primary, textAlign: 'right' }}
+          >
+            سفرة
+          </Text>
         ) : null}
 
         {showBack ? (
@@ -139,17 +142,7 @@ export function ScreenHeader({
         {showActions ? (
           <>
             <CartAction count={totalItems} onPress={() => router.navigate('/(tabs)/cart')} />
-            <PressableScale
-              onPress={() => user ? router.navigate('/(tabs)/account') : router.push('/auth')}
-              style={{ width: 42, height: 42 }}
-              contentStyle={{ width: 42, height: 42, borderRadius: 14, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center' }}
-            >
-              {profile?.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={{ width: 42, height: 42, borderRadius: 14 }} contentFit="cover" />
-              ) : (
-                <UserRound size={20} color={colors.primary} />
-              )}
-            </PressableScale>
+            <NotificationAction userId={user?.id} onPress={() => user ? router.navigate('/(tabs)/notifications') : router.push('/auth')} />
           </>
         ) : null}
 

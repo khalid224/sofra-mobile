@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
@@ -110,10 +111,11 @@ export default function AuthScreen() {
         <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingTop: spacing.lg }}>
           {/* Logo */}
           <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
-            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...shadow.lg, marginBottom: spacing.md }}>
-              <Text style={{ color: '#fff', fontFamily: fontFamily.extrabold, fontSize: fontSize['3xl'] }}>S</Text>
+            <View style={{ width: 92, height: 92, borderRadius: 28, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow.lg, marginBottom: spacing.md }}>
+              <Image source={require('../assets/images/icon.png')} style={{ width: 84, height: 84, borderRadius: 24 }} contentFit="contain" />
             </View>
-            <Text style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize['3xl'], color: colors.foreground }}>sofra</Text>
+            <Text style={{ fontFamily: fontFamily.extrabold, fontSize: fontSize['3xl'], color: colors.primary }}>سفرة</Text>
+            <Text style={{ fontFamily: fontFamily.semibold, fontSize: fontSize.sm, color: colors.accent, marginTop: 2 }}>من البيت للبيت</Text>
             <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.md, color: colors.mutedForeground, marginTop: 4 }}>
               {mode === 'login' ? 'أهلاً بعودتك' : 'أنشئ حسابك الجديد'}
             </Text>

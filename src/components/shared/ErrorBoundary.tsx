@@ -40,7 +40,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </Text>
             <Pressable
               onPress={() => this.setState({ hasError: false, error: null, errorInfo: "" })}
-              style={{ backgroundColor: "#CA4B20", borderRadius: 14, paddingVertical: 14, alignItems: "center" }}
+              style={{ backgroundColor: "#4A2A1F", borderRadius: 14, paddingVertical: 14, alignItems: "center" }}
             >
               <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>حاول مجدداً</Text>
             </Pressable>

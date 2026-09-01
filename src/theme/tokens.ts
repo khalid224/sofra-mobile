@@ -1,114 +1,114 @@
-// SOFRA DELIVERY — calm Arabic-first design system.
+// SOFRA — Warm Egyptian Editorial × Premium Homemade Food.
 // The tokens intentionally stay framework-agnostic so the existing app
 // architecture can keep consuming them without screen-level hard-coded colors.
 
 export const lightColors = {
-  background: '#F8FAFC',
-  surface: '#FFFFFF',
-  surfaceElevated: '#FFFFFF',
+  background: '#F9EEDB',
+  surface: '#FFFDF8',
+  surfaceElevated: '#FFFDF8',
 
-  card: '#FFFFFF',
-  cardForeground: '#1E293B',
+  card: '#FFFDF8',
+  cardForeground: '#3B261D',
 
-  primary: '#0F766E',
-  primaryLight: '#14B8A6',
-  primaryDark: '#115E59',
+  primary: '#4A2A1F',
+  primaryLight: '#6B4A3A',
+  primaryDark: '#321C15',
   primaryForeground: '#FFFFFF',
-  primarySubtle: '#ECFDF5',
+  primarySubtle: '#F0DFCA',
 
-  // Orange is reserved for offers, rewards and high-attention actions.
-  accent: '#F97316',
+  // Terracotta is reserved for offers and editorial highlights.
+  accent: '#A85F43',
   accentForeground: '#FFFFFF',
-  accentSubtle: '#FFF7ED',
+  accentSubtle: '#F5E4D8',
 
-  foreground: '#1E293B',
-  foregroundSecondary: '#475569',
-  foregroundTertiary: '#94A3B8',
+  foreground: '#3B261D',
+  foregroundSecondary: '#6B4A3A',
+  foregroundTertiary: '#8F796B',
 
-  muted: '#F1F5F9',
-  mutedForeground: '#64748B',
+  muted: '#F3E5D2',
+  mutedForeground: '#8F796B',
 
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
-  input: '#F8FAFC',
-  inputFocus: '#0D9488',
+  border: '#E4D0B5',
+  borderLight: '#EEDFCB',
+  input: '#FFFDF8',
+  inputFocus: '#6B4A3A',
 
-  success: '#16A34A',
+  success: '#747A52',
   successForeground: '#FFFFFF',
-  successSubtle: '#F0FDF4',
+  successSubtle: '#EAEDD9',
 
-  warning: '#F97316',
+  warning: '#A85F43',
   warningForeground: '#FFFFFF',
-  warningSubtle: '#FFF7ED',
+  warningSubtle: '#F5E4D8',
 
-  destructive: '#DC2626',
+  destructive: '#B42318',
   destructiveForeground: '#FFFFFF',
-  destructiveSubtle: '#FEF2F2',
+  destructiveSubtle: '#FCE8E6',
 
-  info: '#0284C7',
+  info: '#6B4A3A',
   infoForeground: '#FFFFFF',
-  infoSubtle: '#F0F9FF',
+  infoSubtle: '#F0DFCA',
 
-  overlay: 'rgba(15, 23, 42, 0.58)',
-  overlayLight: 'rgba(15, 23, 42, 0.28)',
+  overlay: 'rgba(50, 28, 21, 0.64)',
+  overlayLight: 'rgba(50, 28, 21, 0.32)',
 
-  skeleton: '#E2E8F0',
-  skeletonHighlight: '#F8FAFC',
-  star: '#F59E0B',
+  skeleton: '#E4D0B5',
+  skeletonHighlight: '#FFF8EC',
+  star: '#B8842F',
 };
 
 export const darkColors: typeof lightColors = {
-  background: '#071A19',
-  surface: '#0B2422',
-  surfaceElevated: '#10302D',
+  background: '#17100D',
+  surface: '#221815',
+  surfaceElevated: '#2B1E19',
 
-  card: '#0B2422',
-  cardForeground: '#F8FAFC',
+  card: '#2B1E19',
+  cardForeground: '#FFF8EC',
 
-  primary: '#2DD4BF',
-  primaryLight: '#5EEAD4',
-  primaryDark: '#14B8A6',
-  primaryForeground: '#042F2E',
-  primarySubtle: '#103B36',
+  primary: '#D6A57E',
+  primaryLight: '#E5BE9E',
+  primaryDark: '#B9825E',
+  primaryForeground: '#24140F',
+  primarySubtle: '#3A271F',
 
-  accent: '#FB923C',
-  accentForeground: '#431407',
-  accentSubtle: '#431F0C',
+  accent: '#C47B5B',
+  accentForeground: '#FFF8EC',
+  accentSubtle: '#43281F',
 
-  foreground: '#F8FAFC',
-  foregroundSecondary: '#CBD5E1',
-  foregroundTertiary: '#94A3B8',
+  foreground: '#FFF8EC',
+  foregroundSecondary: '#D7C4B5',
+  foregroundTertiary: '#A88D7D',
 
-  muted: '#12312E',
-  mutedForeground: '#94A3B8',
+  muted: '#33231D',
+  mutedForeground: '#B59D8E',
 
-  border: '#21433F',
-  borderLight: '#153632',
-  input: '#10302D',
-  inputFocus: '#2DD4BF',
+  border: '#4A342B',
+  borderLight: '#392720',
+  input: '#221815',
+  inputFocus: '#D6A57E',
 
-  success: '#4ADE80',
-  successForeground: '#052E16',
-  successSubtle: '#123A28',
+  success: '#A8AF76',
+  successForeground: '#17100D',
+  successSubtle: '#30331F',
 
-  warning: '#FB923C',
-  warningForeground: '#431407',
-  warningSubtle: '#43220E',
+  warning: '#C47B5B',
+  warningForeground: '#FFF8EC',
+  warningSubtle: '#43281F',
 
-  destructive: '#F87171',
-  destructiveForeground: '#450A0A',
-  destructiveSubtle: '#421616',
+  destructive: '#F28B82',
+  destructiveForeground: '#2A0A07',
+  destructiveSubtle: '#421B18',
 
-  info: '#38BDF8',
-  infoForeground: '#082F49',
-  infoSubtle: '#0C3042',
+  info: '#D6A57E',
+  infoForeground: '#17100D',
+  infoSubtle: '#3A271F',
 
-  overlay: 'rgba(2, 6, 23, 0.78)',
-  overlayLight: 'rgba(2, 6, 23, 0.52)',
+  overlay: 'rgba(10, 6, 5, 0.82)',
+  overlayLight: 'rgba(10, 6, 5, 0.56)',
 
-  skeleton: '#173936',
-  skeletonHighlight: '#21433F',
-  star: '#FBBF24',
+  skeleton: '#3A2821',
+  skeletonHighlight: '#4A342B',
+  star: '#D4A44A',
 };
 
 export type ThemeColors = typeof lightColors;
@@ -159,28 +159,28 @@ export const fontSize = {
 
 export const shadow = {
   sm: {
-    shadowColor: '#0F172A',
+    shadowColor: '#4A2A1F',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 1,
   },
   md: {
-    shadowColor: '#0F172A',
+    shadowColor: '#4A2A1F',
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.08,
     shadowRadius: 14,
     elevation: 3,
   },
   lg: {
-    shadowColor: '#0F172A',
+    shadowColor: '#4A2A1F',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 6,
   },
   card: {
-    shadowColor: '#0F172A',
+    shadowColor: '#4A2A1F',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.055,
     shadowRadius: 12,
@@ -189,9 +189,9 @@ export const shadow = {
 } as const;
 
 export const gradients = {
-  primary: ['#0F766E', '#0D9488'] as const,
-  accent: ['#F97316', '#FB923C'] as const,
-  calm: ['#0F766E', '#14B8A6'] as const,
-  hero: ['rgba(15,23,42,0.04)', 'rgba(15,23,42,0.82)'] as const,
-  card: ['rgba(255,255,255,0)', 'rgba(255,255,255,0.98)'] as const,
+  primary: ['#4A2A1F', '#321C15'] as const,
+  accent: ['#A85F43', '#874631'] as const,
+  calm: ['#6B4A3A', '#4A2A1F'] as const,
+  hero: ['rgba(50,28,21,0.08)', 'rgba(50,28,21,0.88)'] as const,
+  card: ['rgba(255,253,248,0)', 'rgba(255,253,248,0.98)'] as const,
 };

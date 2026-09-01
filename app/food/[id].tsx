@@ -225,11 +225,11 @@ export default function FoodDetailScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Floating Header */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingTop: insets.top + 8, paddingHorizontal: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Pressable onPress={handleHeartPress} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center', ...shadow.md }}>
-          <Heart size={20} color={isFav ? '#FF4E6A' : '#000'} fill={isFav ? '#FF4E6A' : 'transparent'} />
+        <Pressable onPress={handleHeartPress} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,253,248,0.92)', alignItems: 'center', justifyContent: 'center', ...shadow.md }}>
+          <Heart size={20} color={isFav ? colors.destructive : colors.foreground} fill={isFav ? colors.destructive : 'transparent'} />
         </Pressable>
-        <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.94)', alignItems: 'center', justifyContent: 'center', ...shadow.md }}>
-          <ArrowRight size={20} color="#1E293B" />
+        <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,253,248,0.94)', alignItems: 'center', justifyContent: 'center', ...shadow.md }}>
+          <ArrowRight size={20} color={colors.foreground} />
         </Pressable>
       </View>
 
@@ -241,7 +241,7 @@ export default function FoodDetailScreen() {
           ) : (
             <Image source={{ uri: images[activeImage] ?? '' }} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={200} />
           )}
-          <LinearGradient colors={['transparent', 'rgba(15,23,42,0.30)']} style={{ position: 'absolute', inset: 0 }} pointerEvents="none" />
+          <LinearGradient colors={['transparent', 'rgba(50,28,21,0.34)']} style={{ position: 'absolute', inset: 0 }} pointerEvents="none" />
         </View>
 
         {/* Gallery Dots */}

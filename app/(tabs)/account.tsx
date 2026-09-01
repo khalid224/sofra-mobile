@@ -40,7 +40,7 @@ export default function AccountScreen() {
     { icon: MapPin, label: 'عناويني', caption: 'عناوين التوصيل المحفوظة', onPress: () => router.push('/profile/addresses'), show: !!user },
     { icon: ShoppingBag, label: 'سلة المشتريات', caption: 'راجع طلبك الحالي', onPress: () => router.navigate('/(tabs)/cart'), show: true },
     { icon: Heart, label: 'المفضلة', caption: 'الأصناف اللي عجبتك', onPress: () => router.push('/favorites'), show: !!user },
-    { icon: MessageCircle, label: 'المحادثات', caption: 'تواصل مع فريق sofra', onPress: () => router.push('/chat'), show: !!user },
+    { icon: MessageCircle, label: 'المحادثات', caption: 'تواصل مع فريق سفرة', onPress: () => router.push('/chat'), show: !!user },
     { icon: Star, label: 'تقييماتي', caption: 'شاركنا رأيك', onPress: () => router.push('/reviews'), show: !!user },
     { icon: FileText, label: 'الشكاوى', caption: 'تابع طلبات الدعم', onPress: () => router.push('/complaints'), show: !!user },
     { icon: Settings2, label: 'الإعدادات', caption: 'التفضيلات والخصوصية', onPress: () => router.push('/settings'), show: true },
@@ -60,7 +60,7 @@ export default function AccountScreen() {
                 <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.extrabold, fontSize: fontSize['3xl'] }}>{(profile?.full_name ?? user.email ?? 'م')[0].toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: fontSize.xl, textAlign: 'right' }}>{profile?.full_name ?? 'مستخدم sofra'}</Text>
+                <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.bold, fontSize: fontSize.xl, textAlign: 'right' }}>{profile?.full_name ?? 'مستخدم سفرة'}</Text>
                 <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.78)', fontFamily: fontFamily.regular, fontSize: fontSize.xs, textAlign: 'right', marginTop: 3 }}>{user.email ?? user.phone ?? ''}</Text>
                 {isAdmin ? <View style={{ alignSelf: 'flex-end', marginTop: spacing.sm, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.16)' }}><Text style={{ color: '#FFFFFF', fontFamily: fontFamily.semibold, fontSize: 10 }}>مدير النظام</Text></View> : null}
               </View>
@@ -69,7 +69,8 @@ export default function AccountScreen() {
         ) : (
           <View style={{ backgroundColor: colors.card, borderRadius: radius['2xl'], padding: spacing.lg, alignItems: 'center', gap: spacing.compact, borderWidth: 1, borderColor: colors.border, ...shadow.card }}>
             <View style={{ width: 64, height: 64, borderRadius: 22, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center' }}><User size={28} color={colors.primary} /></View>
-            <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.xl, color: colors.foreground }}>أهلًا بيك في sofra</Text>
+            <Text style={{ fontFamily: fontFamily.bold, fontSize: fontSize.xl, color: colors.foreground }}>أهلًا بيك في سفرة</Text>
+            <Text style={{ fontFamily: fontFamily.semibold, fontSize: fontSize.sm, color: colors.accent }}>من البيت للبيت</Text>
             <Text style={{ fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground, textAlign: 'center' }}>سجّل دخولك لمتابعة الطلبات وحفظ المفضلة والعناوين</Text>
             <Button fullWidth onPress={() => router.push('/auth')}>تسجيل الدخول أو إنشاء حساب</Button>
           </View>
@@ -118,7 +119,11 @@ export default function AccountScreen() {
           </Pressable>
         ) : null}
 
-        <Text style={{ marginTop: spacing.lg, textAlign: 'center', fontFamily: fontFamily.regular, fontSize: 10, color: colors.foregroundTertiary }}>sofra v1.0.0 · معمول بحب في مصر</Text>
+        <View style={{ marginTop: spacing.lg, alignItems: 'center', gap: 2 }}>
+          <Text style={{ textAlign: 'center', fontFamily: fontFamily.extrabold, fontSize: fontSize.lg, color: colors.primary }}>سفرة</Text>
+          <Text style={{ textAlign: 'center', fontFamily: fontFamily.semibold, fontSize: fontSize.xs, color: colors.accent }}>من البيت للبيت</Text>
+          <Text style={{ textAlign: 'center', fontFamily: fontFamily.regular, fontSize: 10, color: colors.foregroundTertiary }}>الإصدار 1.0.0 · معمول بحب في مصر</Text>
+        </View>
       </ScrollView>
     </View>
   );

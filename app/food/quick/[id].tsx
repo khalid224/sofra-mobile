@@ -291,13 +291,13 @@ export default function ProductQuickView() {
             width: 38,
             height: 38,
             borderRadius: 19,
-            backgroundColor: 'rgba(255,255,255,0.94)',
+            backgroundColor: 'rgba(255,253,248,0.94)',
             alignItems: 'center',
             justifyContent: 'center',
             ...shadow.sm,
           }}
         >
-          <X size={19} color="#1E293B" />
+          <X size={19} color={colors.foreground} />
         </Pressable>
 
         {isLoading ? (
