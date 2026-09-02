@@ -76,22 +76,22 @@ export async function requireActiveAdmin(admin: SupabaseClient, req: Request): P
   return user;
 }
 
-const buckets = new Map<string, { count: number; resetAt: number }>();
-
-export function enforceRateLimit(key: string, limit: number, windowMs = 60_000): void {
-  const now = Date.now();
-  const current = buckets.get(key);
-  if (!current || current.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return;
+export async function enforceRateLimit(
+  admin: SupabaseClient,
+  key: string,
+  limit: number,
+  windowSeconds = 60,
+): Promise<void> {
+  const { data, error } = await admin.rpc('consume_rate_limit', {
+    p_bucket_key: key,
+    p_limit: limit,
+    p_window_seconds: windowSeconds,
+  });
+  if (error) {
+    console.error('[rate-limit] durable check failed:', error.message);
+    throw new HttpError(503, 'RATE_LIMIT_UNAVAILABLE');
   }
-  if (current.count >= limit) throw new HttpError(429, 'RATE_LIMIT_EXCEEDED');
-  current.count += 1;
-  if (buckets.size > 5_000) {
-    for (const [bucketKey, bucket] of buckets) {
-      if (bucket.resetAt <= now) buckets.delete(bucketKey);
-    }
-  }
+  if (data !== true) throw new HttpError(429, 'RATE_LIMIT_EXCEEDED');
 }
 
 export function requestKey(req: Request, scope: string, identity?: string): string {
@@ -100,7 +100,9 @@ export function requestKey(req: Request, scope: string, identity?: string): stri
 }
 
 export function errorResponse(error: unknown): Response {
-  const status = error instanceof HttpError ? error.status : 400;
-  const message = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
-  return jsonResponse({ error: message }, status);
+  if (error instanceof HttpError) return jsonResponse({ error: error.message }, error.status);
+  if (error instanceof Error && error.name === 'ZodError') {
+    return jsonResponse({ error: 'INVALID_REQUEST' }, 400);
+  }
+  return jsonResponse({ error: 'INTERNAL_ERROR' }, 500);
 }

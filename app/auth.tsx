@@ -73,7 +73,7 @@ export default function AuthScreen() {
     const errs: Partial<typeof form> = {};
     if (mode === 'register' && form.fullName.trim().length < 2) errs.fullName = 'الاسم مطلوب';
     if (!validateEmail(form.email)) errs.email = 'البريد الإلكتروني غير صحيح';
-    if (form.password.length < 6) errs.password = 'كلمة السر 6 أحرف على الأقل';
+    if (form.password.length < 10) errs.password = 'كلمة السر 10 أحرف على الأقل';
     if (mode === 'register' && form.password !== form.confirm) errs.confirm = 'كلمتا السر غير متطابقتين';
     setErrors(errs);
     return Object.keys(errs).length === 0;

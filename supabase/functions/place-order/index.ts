@@ -51,7 +51,8 @@ serve(async (req) => {
     );
     const { data: { user }, error: authError } = await admin.auth.getUser(token);
     if (authError || !user) throw new Error('جلسة المستخدم غير صالحة');
-    enforceRateLimit(requestKey(req, 'place-order', user.id), 10);
+    await enforceRateLimit(admin, requestKey(req, 'place-order-user', user.id), 10);
+    await enforceRateLimit(admin, requestKey(req, 'place-order-ip'), 30);
 
     const input = schema.parse(await readJsonLimited<unknown>(req, 65_536));
     const userClient = createClient(

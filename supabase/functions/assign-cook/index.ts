@@ -63,7 +63,7 @@ serve(async (req) => {
     );
 
     const user = await requireActiveAdmin(admin, req);
-    enforceRateLimit(requestKey(req, 'assign-cook', user.id), 20);
+    await enforceRateLimit(admin, requestKey(req, 'assign-cook', user.id), 20);
 
     const body = await readJsonLimited<unknown>(req, 4_096);
     const input = schema.parse(body);
@@ -113,16 +113,14 @@ serve(async (req) => {
       if (!cooks || cooks.length === 0) throw new Error('لا يوجد طباخون متاحون حالياً');
 
       // ── Count active orders per cook (workload) ──
-      const { data: activeCounts } = await admin
-        .from('orders')
-        .select('cook_id')
-        .in('status', ['accepted', 'preparing', 'ready'])
-        .not('cook_id', 'is', null);
+      const { data: activeCounts, error: workloadError } = await admin
+        .rpc('get_cook_workloads');
+      if (workloadError) throw workloadError;
 
       const workloadMap = new Map<string, number>();
-      for (const o of activeCounts ?? []) {
-        const c = o as { cook_id: string };
-        workloadMap.set(c.cook_id, (workloadMap.get(c.cook_id) ?? 0) + 1);
+      for (const row of activeCounts ?? []) {
+        const workload = row as { cook_id: string; active_orders: number };
+        workloadMap.set(workload.cook_id, Number(workload.active_orders));
       }
 
       // ── Score each cook ──
@@ -165,43 +163,16 @@ serve(async (req) => {
       .single();
     if (!cook) throw new Error('الطاهي غير موجود');
 
-    // ── Update order: assign cook + move to waiting_cook ──
-    const { error: assignmentError } = await admin.from('orders').update({
-      cook_id: assignedCookId,
-      status: 'waiting_cook',
-      updated_at: new Date().toISOString(),
-    }).eq('id', input.order_id);
+    // Order update, attempt allocation, dispatch history and timeline are one
+    // database transaction. The order row lock rejects concurrent assignment.
+    const { data: assignmentRows, error: assignmentError } = await admin.rpc(
+      'assign_cook_atomic',
+      { p_order_id: input.order_id, p_cook_id: assignedCookId, p_admin_id: user.id },
+    );
     if (assignmentError) throw assignmentError;
-
-    // ── Dispatch history ──
-    const { data: lastDispatch } = await admin
-      .from('dispatch_history')
-      .select('attempt_number')
-      .eq('order_id', input.order_id)
-      .order('attempt_number', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const attemptNumber =
-      ((lastDispatch as { attempt_number: number } | null)?.attempt_number ?? 0) + 1;
-
-    const { error: dispatchError } = await admin.from('dispatch_history').insert({
-      order_id: input.order_id,
-      cook_id: assignedCookId,
-      attempt_number: attemptNumber,
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-    });
-    if (dispatchError) throw dispatchError;
-
-    // ── Order timeline ──
-    const { error: timelineError } = await admin.from('order_timeline').insert({
-      order_id: input.order_id,
-      status: 'waiting_cook',
-      created_by: user.id,
-      notes: `تم إرسال الطلب للطاهي ${cook.full_name} — المحاولة #${attemptNumber}`,
-    });
-    if (timelineError) throw timelineError;
+    const assignment = (assignmentRows as { attempt_number: number }[] | null)?.[0];
+    if (!assignment) throw new Error('ASSIGNMENT_TRANSACTION_FAILED');
+    const attemptNumber = assignment.attempt_number;
 
     // ── Generate WhatsApp message ──
     const { data: orderItems } = await admin

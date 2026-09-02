@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -33,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const activeProfileUserId = useRef<string | null>(null);
 
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
@@ -44,12 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[Auth] Profile fetch error:', error.message);
       return;
     }
-    setProfile(data as Profile);
+    if (activeProfileUserId.current === userId) setProfile(data as Profile);
   }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      activeProfileUserId.current = data.session?.user?.id ?? null;
+      setProfile(null);
       if (data.session?.user?.id) {
         fetchProfile(data.session.user.id).finally(() => setIsLoading(false));
       } else {
@@ -59,10 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      activeProfileUserId.current = newSession?.user?.id ?? null;
+      setProfile(null);
       if (newSession?.user?.id) {
         fetchProfile(newSession.user.id);
-      } else {
-        setProfile(null);
       }
     });
 
@@ -92,9 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    activeProfileUserId.current = null;
+    setProfile(null);
     await supabase.auth.signOut();
     await AsyncStorage.removeItem(STORAGE_KEYS.CART).catch(() => undefined);
-    setProfile(null);
   };
 
   const refreshProfile = async () => {

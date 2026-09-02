@@ -17,6 +17,7 @@ import { formatTimeAgo } from '@/utils';
 import { QUERY_KEYS } from '@/constants';
 import type { AppNotification, NotificationType } from '@/types';
 import { useRealtimeInvalidate } from '@/hooks/useRealtimeInvalidate';
+import { isSafeNotificationId, safeNotificationScreen } from '@/features/notifications/navigation';
 
 const TYPE_EMOJI: Record<NotificationType, string> = {
   order_received: '📦',
@@ -72,15 +73,16 @@ export default function NotificationsScreen() {
     }
     try {
       const payload = item.data && typeof item.data === 'object' ? (item.data as Record<string, string>) : null;
-      if (payload?.order_id) {
+      if (isSafeNotificationId(payload?.order_id)) {
         router.push(`/order/${payload.order_id}` as never);
-      } else if (payload?.today_special_id) {
+      } else if (isSafeNotificationId(payload?.today_special_id)) {
         router.push({
           pathname: '/food/[id]',
           params: { id: payload.today_special_id, todaySpecialId: payload.today_special_id },
         } as never);
-      } else if (payload?.screen) {
-        router.push(payload.screen as never);
+      } else {
+        const screen = safeNotificationScreen(payload?.screen);
+        if (screen) router.push(screen as never);
       }
     } catch (e) {
       console.warn('[NotificationsScreen] Deep-link error:', e);

@@ -75,13 +75,45 @@ function serializeError(error: unknown): string {
   }
 }
 
+async function sendExpoBatch(batch: Array<Record<string, unknown>>): Promise<ExpoPushTicket[]> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    try {
+      const expoRes = await fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(batch),
+        signal: controller.signal,
+      });
+      const rawResult = await expoRes.text();
+      if (!expoRes.ok) throw new Error(`EXPO_HTTP_${expoRes.status}: ${rawResult}`);
+
+      const result = JSON.parse(rawResult) as { data?: ExpoPushTicket[] };
+      const tickets = result.data ?? [];
+      if (tickets.length !== batch.length) {
+        throw new Error(`EXPO_TICKET_COUNT_MISMATCH: ${rawResult}`);
+      }
+      return tickets;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 300 * (2 ** attempt)));
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('EXPO_PUSH_FAILED');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
     requireMethod(req, 'POST');
     requireSecret(req, 'x-webhook-secret', 'WEBHOOK_SECRET');
-    enforceRateLimit(requestKey(req, 'send-push'), 120);
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     if (!serviceRoleKey || !supabaseUrl) {
@@ -91,6 +123,7 @@ serve(async (req) => {
       supabaseUrl,
       serviceRoleKey,
     );
+    await enforceRateLimit(admin, requestKey(req, 'send-push'), 120);
 
     const body = await readJsonLimited<unknown>(req, 262_144);
     const input = schema.parse(body);
@@ -189,33 +222,10 @@ serve(async (req) => {
     let totalAccepted = 0;
     let totalRejected = 0;
     const ticketErrors: Array<Record<string, unknown>> = [];
+    const invalidTokens: string[] = [];
     for (let i = 0; i < messages.length; i += BATCH_SIZE) {
       const batch = messages.slice(i, i + BATCH_SIZE);
-      const expoRes = await fetch(EXPO_PUSH_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(batch),
-      });
-      const rawResult = await expoRes.text();
-      if (!expoRes.ok) {
-        throw new Error(
-          `Expo Push API HTTP ${expoRes.status}: ${rawResult}`,
-        );
-      }
-
-      let result: { data?: ExpoPushTicket[]; errors?: unknown };
-      try {
-        result = JSON.parse(rawResult) as { data?: ExpoPushTicket[]; errors?: unknown };
-      } catch {
-        throw new Error(`Expo Push API returned invalid JSON: ${rawResult}`);
-      }
-
-      const tickets = result.data ?? [];
-      if (tickets.length !== batch.length) {
-        throw new Error(
-          `Expo Push API returned ${tickets.length} tickets for ${batch.length} messages: ${rawResult}`,
-        );
-      }
+      const tickets = await sendExpoBatch(batch);
 
       tickets.forEach((ticket, ticketIndex) => {
         if (ticket.status === 'ok') {
@@ -223,6 +233,9 @@ serve(async (req) => {
           return;
         }
         totalRejected += 1;
+        if (ticket.details?.error === 'DeviceNotRegistered') {
+          invalidTokens.push(String(batch[ticketIndex].to));
+        }
         ticketErrors.push({
           batch: Math.floor(i / BATCH_SIZE) + 1,
           index: ticketIndex,
@@ -238,9 +251,17 @@ serve(async (req) => {
           messages: batch.length,
           accepted: tickets.filter((ticket) => ticket.status === 'ok').length,
           rejected: tickets.filter((ticket) => ticket.status === 'error').length,
-          result,
+          tickets,
         }),
       );
+    }
+
+    if (invalidTokens.length > 0) {
+      const { error: cleanupError } = await admin
+        .from('device_tokens')
+        .delete()
+        .in('token', [...new Set(invalidTokens)]);
+      if (cleanupError) console.error('[send-push] token cleanup failed:', cleanupError.message);
     }
 
     const responseBody = {

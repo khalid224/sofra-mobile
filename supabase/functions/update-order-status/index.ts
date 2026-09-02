@@ -35,7 +35,7 @@ serve(async (req) => {
     );
 
     const user = await requireActiveAdmin(admin, req);
-    enforceRateLimit(requestKey(req, 'update-order-status', user.id), 60);
+    await enforceRateLimit(admin, requestKey(req, 'update-order-status', user.id), 60);
 
     const body = await readJsonLimited<unknown>(req, 4_096);
     const input = schema.parse(body);

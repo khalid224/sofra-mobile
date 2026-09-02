@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { registerForPushNotificationsAsync } from '@/lib/notifications';
 import { savePushToken } from '@/features/notifications/services/savePushToken';
+import { isSafeNotificationId, safeNotificationScreen } from '@/features/notifications/navigation';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -31,12 +32,13 @@ function handleNotificationResponse(response: Notifications.NotificationResponse
 
   const data = response.notification.request.content.data as Record<string, string> | undefined;
   void import('expo-router').then(({ router }) => {
-    if (data?.order_id) {
+    if (isSafeNotificationId(data?.order_id)) {
       router.push(`/order/${data.order_id}` as never);
-    } else if (data?.thread_id) {
+    } else if (isSafeNotificationId(data?.thread_id)) {
       router.push('/chat' as never);
-    } else if (data?.screen) {
-      router.push(data.screen as never);
+    } else {
+      const screen = safeNotificationScreen(data?.screen);
+      if (screen) router.push(screen as never);
     }
   }).catch((error: unknown) => logNotificationError('deep-link failed', error));
 }

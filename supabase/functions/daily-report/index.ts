@@ -42,7 +42,7 @@ serve(async (req) => {
       generatedBy = user.id;
       caller = user.id;
     }
-    enforceRateLimit(requestKey(req, 'daily-report', caller), 5, 60 * 60_000);
+    await enforceRateLimit(admin, requestKey(req, 'daily-report', caller), 5, 60 * 60);
 
     const now = new Date();
     const yesterday = new Date(now);
@@ -103,28 +103,26 @@ serve(async (req) => {
     });
     if (reportError) throw reportError;
 
-    // Send push notification to all admins
-    const { data: adminTokens } = await admin
-      .from('device_tokens')
-      .select('token, user_id')
-      .in(
-        'user_id',
-        (await admin.from('profiles').select('id').eq('role', 'admin').eq('status', 'active')).data?.map((p: { id: string }) => p.id) ?? [],
+    // Use the canonical notifications pipeline; it owns timeout, retry,
+    // preferences and invalid-token cleanup.
+    const { data: activeAdmins, error: adminsError } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin')
+      .eq('status', 'active');
+    if (adminsError) throw adminsError;
+    if ((activeAdmins?.length ?? 0) > 0) {
+      const { error: notificationError } = await admin.from('notifications').insert(
+        (activeAdmins ?? []).map((profile: { id: string }) => ({
+          user_id: profile.id,
+          title: `📊 تقرير ${report.date}`,
+          body: `${orders.length} طلب | إيراد: ${revenue} جنيه | تقييم: ${avgRating.toFixed(1)}⭐`,
+          type: 'promotion',
+          is_read: false,
+          data: { type: 'daily_report', date: report.date },
+        })),
       );
-
-    if (adminTokens && adminTokens.length > 0) {
-      const messages = (adminTokens as { token: string }[]).map(t => ({
-        to: t.token,
-        title: `📊 تقرير ${report.date}`,
-        body: `${orders.length} طلب | إيراد: ${revenue} جنيه | تقييم: ${avgRating.toFixed(1)}⭐`,
-        sound: 'default',
-        data: { type: 'daily_report', date: report.date },
-      }));
-      await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(messages),
-      });
+      if (notificationError) throw notificationError;
     }
 
     console.log('[daily-report] done:', JSON.stringify(report.orders));
